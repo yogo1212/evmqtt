@@ -1,0 +1,42 @@
+#!/bin/bash
+
+SALT=$(echo "$@" | md5sum | head -c 8)
+
+FIFONAME="./valgrindoutpipe_${SALT}"
+VALCALLFILE="./valgrindcall_${SALT}"
+VALTAILFILE="./valgrindtail_${SALT}"
+
+if [ -e "${FIFONAME}" ]
+then
+	echo "\"${FIFONAME}\" already exists!"
+	exit
+fi
+
+if [ -e "${VALCALLFILE=}" ]
+then
+	echo "\"${VALCALLFILE=}\" already exists!"
+	exit
+fi
+
+if [ -e "${VALTAILFILE}" ]
+then
+	echo "\"${VALTAILFILE}\" already exists!"
+	exit
+fi
+
+TOOL=memcheck
+
+echo "valgrind --leak-check=full --show-reachable=yes --tool=${TOOL} --log-file=${FIFONAME} $@" > ${VALCALLFILE}
+chmod +x ${VALCALLFILE}
+
+echo "tail -f -n +0 ${FIFONAME} | tee lastvalgrindout" > ${VALTAILFILE}
+chmod +x ${VALTAILFILE}
+
+mkfifo ${FIFONAME}
+
+tmux new-session -d -s valgrind_${SALT} "${VALCALLFILE}"
+
+tmux split-window -h -d "${VALTAILFILE}"
+tmux -2 attach-session -t valgrind_${SALT}
+
+rm ${FIFONAME} ${VALTAILFILE} ${VALCALLFILE}

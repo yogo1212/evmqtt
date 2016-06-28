@@ -1,0 +1,41 @@
+#!/bin/bash
+
+# Invocation: tools/gatherevents $(EVENTCFILE).stub $(EVENTCFILE) $(EVENTCPARTDIR)
+
+pushd "$3" >/dev/null
+eventcpartfiles=$(ls *.c | sed 's/.c$//')
+popd >/dev/null
+
+echo "Found these message-handlers:"
+echo "${eventcpartfiles}"
+
+cp "$1" "$2"
+
+# Not the best solution..
+for EVENT in ${eventcpartfiles}
+do
+	prepare_topic_name="prepare_${EVENT}_topics"
+	register_topic_cb_name="register_${EVENT}_topic_callbacks"
+	start_events_name="start_${EVENT}_events"
+	stop_events_name="stop_${EVENT}_events"
+	cat "$2" |\
+		sed "/^INCLUDEMARKER$/a extern int ${stop_events_name}(void) ;" |\
+		sed "/^INCLUDEMARKER$/a extern int ${start_events_name}(void) ;" |\
+		sed "/^INCLUDEMARKER$/a extern int ${register_topic_cb_name}(void) ;" |\
+		sed "/^INCLUDEMARKER$/a extern int ${prepare_topic_name}(void) ;" |\
+		sed "/^PREPAREMARKER$/a ${prepare_topic_name}();" |\
+		sed "/^REGISTERMARKER$/a ${register_topic_cb_name}();" |\
+		sed "/^STARTMARKER$/a ${start_events_name}();" |\
+		sed "/^STOPMARKER$/a ${stop_events_name}();" \
+		> "$2.tmp"
+	mv "$2.tmp" "$2"
+done
+
+cat "$2" |\
+	sed "/^INCLUDEMARKER$/d" |\
+	sed "/^PREPAREMARKER$/d" |\
+	sed "/^REGISTERMARKER$/d" |\
+	sed "/^STARTMARKER$/d" |\
+	sed "/^STOPMARKER$/d" \
+	> "$2.tmp"
+mv "$2.tmp" "$2"

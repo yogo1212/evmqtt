@@ -1,0 +1,75 @@
+#!/bin/bash
+
+function check() {
+	echo -n "continue? [y/N] "
+	read DOIT
+
+	if [ "${DOIT}" != "y" ]
+	  then
+	  echo "Aborted.."
+	  exit
+	fi
+}
+
+echo Formatting these files:
+echo "$@"
+
+#check
+
+OLDASTYLE=
+if [ -e "~/.astylerc" ]
+	then
+	OLDASTYLE="$(mktemp)"
+	mv "~/.astylerc" "${OLDASTYLE}"
+	echo "saved your astyle to ${OLDASTYLE}"
+fi
+
+#: ${INDENTION_SPACES:=4}
+#is less readable than this:
+SPACES=${INDENTION_SPACES:-4}
+
+cat > ~/.astylerc << MIAU
+--style=1tbs
+--indent=spaces=${SPACES}
+--indent-switches
+--indent-labels
+--indent-col1-comments
+--min-conditional-indent=0
+--break-blocks
+--pad-oper
+--pad-header
+--unpad-paren
+--break-closing-brackets
+--add-brackets
+--align-pointer=name
+MIAU
+
+astyle "$@"
+
+if [ -n "${OLDASTYLE}" ]
+	then
+	mv "${OLDASTYLE}" "~/.astylerc"
+	echo "restored your old astyle"
+fi
+
+BACKUPS=
+
+for SOURCE in "$@"
+do
+	if [ -f "${SOURCE}.orig" ]
+		then
+		BACKUPS="${BACKUPS} ${SOURCE}.orig"
+	fi
+done
+
+BACKUPS="$(echo ${BACKUPS} | sed 's/\s/\n/g' | sort | uniq | sed '/^$/d')"
+
+echo "Removing these files:"
+echo "${BACKUPS}"
+
+#check
+
+if [ -n "${BACKUPS}" ]
+	then
+	rm ${BACKUPS}
+fi

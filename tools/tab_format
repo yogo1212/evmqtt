@@ -1,0 +1,13 @@
+#!/bin/bash
+
+SAFE_TAB_SIZE=16
+
+INDENTION_SPACES=${SAFE_TAB_SIZE} $(dirname "$0")/format "$@"
+
+TMPFILE="$(mktemp)"
+
+for FILE in "$@"
+do
+	unexpand -t ${SAFE_TAB_SIZE} "${FILE}" > "${TMPFILE}"
+	mv "${TMPFILE}" "${FILE}"
+done
