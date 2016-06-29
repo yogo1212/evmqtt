@@ -356,8 +356,6 @@ static void mqtt_send_publish(evmqtt_t *mc, const char *topic, const void *data,
 	mc->next_mid++;
 
 	call_debug_cb(mc, "sending publish");
-
-	evbuffer_free(evb);
 }
 
 static void mqtt_send_puback(evmqtt_t *mc, uint16_t mid)
