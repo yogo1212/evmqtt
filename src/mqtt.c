@@ -965,7 +965,7 @@ void evmqtt_connect(evmqtt_t *mc, struct bufferevent *bev, bool clean_session)
 
 	bufferevent_setwatermark(mc->bev, EV_READ, 2, 0);
 	bufferevent_setcb(mc->bev, read_callback, NULL, event_callback, mc);
-	bufferevent_enable(mc->bev, EV_READ); /* Start reading. */
+	bufferevent_enable(mc->bev, EV_READ | EV_WRITE);
 
 	mc->data.clean_session = clean_session;
 	if (clean_session) {
