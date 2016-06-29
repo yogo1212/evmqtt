@@ -302,6 +302,7 @@ int main(int argc, char *argv[])
 	struct bufferevent *bev = evt_ssl_connect(ms.essl);
 	if (!bev) {
 		fprintf(stderr, "evt_ssl_connect failed");
+		goto ouch;
 	}
 	evmqtt_connect(ms.evm, bev, true);
 	evmqtt_set_event_cb(ms.evm, mqtt_evtcb);
@@ -312,6 +313,7 @@ int main(int argc, char *argv[])
 	event_base_dispatch(ms.base);
 	event_free(ms.sig_event);
 
+ouch:
 	mqtt_subscription_engine_free(ms.mse);
 
 	evmqtt_free(ms.evm);
