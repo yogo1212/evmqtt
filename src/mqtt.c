@@ -435,14 +435,14 @@ static void handle_connack(evmqtt_t *mc, mqtt_proto_header_t *hdr, void *buf, si
 	}
 
 	mc->state = MQTT_STATE_CONNECTED;
+	if (mc->event_cb) {
+		mc->event_cb(mc, MQTT_EVENT_CONNECTED);
+	}
+
 	mc->awaiting_ping = false;
 
 	struct timeval interval = { mc->data.keep_alive, 0 };
 	event_add(mc->timeout_evt, &interval);
-
-	if (mc->event_cb) {
-		mc->event_cb(mc, MQTT_EVENT_CONNECTED);
-	}
 
 	mqtt_retransmission_t *r, *tmp;
 
@@ -983,8 +983,11 @@ void evmqtt_disconnect(evmqtt_t *mc)
 
 	switch (mc->state) {
 		case MQTT_STATE_CONNECTED:
-			mqtt_send_disconnect(mc);
 			mc->state = MQTT_STATE_DISCONNECTING;
+			if (mc->event_cb) {
+				mc->event_cb(mc, MQTT_EVENT_DISCONNECTED);
+			}
+			mqtt_send_disconnect(mc);
 			struct timeval interval = { 1, 0 };
 			event_add(mc->timeout_evt, &interval);
 			return;
@@ -1005,10 +1008,6 @@ void evmqtt_disconnect(evmqtt_t *mc)
 
 	event_del(mc->timeout_evt);
 	mc->state = MQTT_STATE_DISCONNECTED;
-
-	if (mc->event_cb) {
-		mc->event_cb(mc, MQTT_EVENT_DISCONNECTED);
-	}
 }
 
 void evmqtt_free(evmqtt_t *mc)
