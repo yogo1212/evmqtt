@@ -756,16 +756,16 @@ static void read_callback(struct bufferevent *bev, void *ctx)
 			break;
 
 		case MQTT_MESSAGE_TYPE_PUBREC:
-
 			handle_pubrec(mc, &hdr, bufpnt, remaining_length);
+			break;
 
 		case MQTT_MESSAGE_TYPE_PUBREL:
-
 			handle_pubrel(mc, &hdr, bufpnt, remaining_length);
+			break;
 
 		case MQTT_MESSAGE_TYPE_PUBCOMP:
-
 			handle_pubcomp(mc, &hdr, bufpnt, remaining_length);
+			break;
 
 		case MQTT_MESSAGE_TYPE_PINGREQ:
 		case MQTT_MESSAGE_TYPE_DISCONNECT:
