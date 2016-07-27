@@ -650,7 +650,7 @@ static void event_callback(struct bufferevent *bev, short what, void *ctx)
 
 	if (what & BEV_EVENT_ERROR) {
 		char buf[1024];
-		sprintf(buf, "bev-error(%d): %d", what, EVUTIL_SOCKET_ERROR());
+		sprintf(buf, "bev-error(%d): %s", what, strerror(errno));
 
 		call_error_cb(mc, MQTT_ERROR_NETWORK, buf);
 	}
