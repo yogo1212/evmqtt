@@ -94,7 +94,6 @@ install_lib: $(LIBBIN).$(VERSION)
 install_headers: $(HEADERS)
 	mkdir -p $(HEADERINSTALLDIR)
 	install $(HEADERS) $(HEADERINSTALLDIR)
-	#TODO remove $(HEADERINSTALLDIR) if empty
 
 install_examples: $(EXBINS)
 	mkdir -p $(EXAMPLESINSTALLDIR)
@@ -108,6 +107,7 @@ uninstall_lib:
 uninstall_headers:
 	echo $(HEADERS)
 	rm -f $(patsubst $(INCDIR)/$(NAME)/%,$(HEADERINSTALLDIR)/%,$(HEADERS))
+	#TODO remove $(HEADERINSTALLDIR) if empty
 
 uninstall_examples:
 	rm -f $(patsubst $(BINDIR)/%,$(EXAMPLESINSTALLDIR)/%,$(EXBINS))
