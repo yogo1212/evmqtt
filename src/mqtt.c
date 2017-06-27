@@ -273,7 +273,7 @@ static void mqtt_send_subscribe(evmqtt_t *mc, const char *topic, uint8_t qos)
 	evbuffer_add(evb, bufcpy, bufsize);
 	evbuffer_add(evb, &qos, sizeof(qos));
 
-	add_retransmission(mc, evb, mid);
+	add_retransmission(mc, evb, ntohs(mid));
 
 	evbuffer_free(evb);
 
@@ -308,7 +308,7 @@ static void mqtt_send_unsubscribe(evmqtt_t *mc, const char *topic)
 	evbuffer_add(evb, &mid, sizeof(mid));
 	evbuffer_add(evb, bufcpy, bufsize);
 
-	add_retransmission(mc, evb, mid);
+	add_retransmission(mc, evb, ntohs(mid));
 
 	evbuffer_free(evb);
 
@@ -345,7 +345,7 @@ static void mqtt_send_publish(evmqtt_t *mc, const char *topic, const void *data,
 	evbuffer_add(evb, data, datalen);
 
 	if (qos > 0) {
-		add_retransmission(mc, evb, mid);
+		add_retransmission(mc, evb, ntohs(mid));
 	}
 	else {
 		bufferevent_write_buffer(mc->bev, evb);
