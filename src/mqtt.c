@@ -268,15 +268,14 @@ static void mqtt_send_subscribe(evmqtt_t *mc, const char *topic, uint8_t qos)
 	struct evbuffer *evb = evbuffer_new();
 
 	evbuffer_add(evb, hdrbuf, (uintptr_t) hdrbufpnt - (uintptr_t) hdrbuf);
-	evbuffer_add(evb, &mc->next_mid, sizeof(mc->next_mid));
+	uint16_t mid = htons(mc->next_mid++);
+	evbuffer_add(evb, &mid, sizeof(mid));
 	evbuffer_add(evb, bufcpy, bufsize);
 	evbuffer_add(evb, &qos, sizeof(qos));
 
-	add_retransmission(mc, evb, mc->next_mid);
+	add_retransmission(mc, evb, mid);
 
 	evbuffer_free(evb);
-
-	mc->next_mid++;
 
 	call_debug_cb(mc, "sending subscribe");
 }
@@ -305,14 +304,13 @@ static void mqtt_send_unsubscribe(evmqtt_t *mc, const char *topic)
 	struct evbuffer *evb = evbuffer_new();
 
 	evbuffer_add(evb, hdrbuf, (uintptr_t) hdrbufpnt - (uintptr_t) hdrbuf);
-	evbuffer_add(evb, &mc->next_mid, sizeof(mc->next_mid));
+	uint16_t mid = htons(mc->next_mid++);
+	evbuffer_add(evb, &mid, sizeof(mid));
 	evbuffer_add(evb, bufcpy, bufsize);
 
-	add_retransmission(mc, evb, mc->next_mid);
+	add_retransmission(mc, evb, mid);
 
 	evbuffer_free(evb);
-
-	mc->next_mid++;
 
 	call_debug_cb(mc, "sending unsubscribe");
 }
@@ -338,22 +336,22 @@ static void mqtt_send_publish(evmqtt_t *mc, const char *topic, const void *data,
 	evbuffer_add(evb, hdrbuf, (uintptr_t) hdrbufpnt - (uintptr_t) hdrbuf);
 	evbuffer_add(evb, topicbuf, topicbufsize);
 
+	// this increases even for qos=0
+	uint16_t mid = htons(mc->next_mid++);
 	if (qos > 0) {
-		evbuffer_add(evb, &mc->next_mid, sizeof(mc->next_mid));
+		evbuffer_add(evb, &mid, sizeof(mid));
 	}
 
 	evbuffer_add(evb, data, datalen);
 
 	if (qos > 0) {
-		add_retransmission(mc, evb, mc->next_mid);
+		add_retransmission(mc, evb, mid);
 	}
 	else {
 		bufferevent_write_buffer(mc->bev, evb);
 	}
 
 	evbuffer_free(evb);
-
-	mc->next_mid++;
 
 	call_debug_cb(mc, "sending publish");
 }
