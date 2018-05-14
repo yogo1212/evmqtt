@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "uthash.h"
+#include <uthash.h>
 
 #include "evmqtt/mqtt.h"
 

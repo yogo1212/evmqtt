@@ -5,8 +5,9 @@
 
 #include <event2/buffer.h>
 
+#include <uthash.h>
+
 #include "mqtt_proto.h"
-#include "uthash.h"
 
 #include "evmqtt/mqtt.h"
 
