@@ -60,7 +60,6 @@ struct mqtt_retransmission {
 };
 
 struct mqtt_qos2msg {
-	/* TODO maybe these should have timeouts? */
 	uint16_t mid;
 	time_t last;
 	UT_hash_handle hh;
