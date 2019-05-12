@@ -97,7 +97,7 @@ bool read_remaining_size(void **buf, size_t *out, size_t max_bytes)
 			return false;
 		}
 
-		len += ((*byte) & 0x7F) * mul;
+		len += (size_t) ((*byte) & 0x7F) * mul;
 		mul *= 0x80; // << 7
 
 		if (((*byte) & 0x80) != 0) {
