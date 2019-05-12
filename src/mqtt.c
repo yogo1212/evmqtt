@@ -661,7 +661,7 @@ static void event_callback(struct bufferevent *bev, short what, void *ctx)
 	evmqtt_t *mc = (evmqtt_t *) ctx;
 
 	if (what & BEV_EVENT_CONNECTED) {
-
+		mqtt_send_connect(mc);
 	}
 
 	if (what & BEV_EVENT_EOF) {
@@ -998,7 +998,6 @@ void evmqtt_connect(evmqtt_t *mc, struct bufferevent *bev, bool clean_session)
 		mqtt_clear_inflight(mc);
 	}
 
-	mqtt_send_connect(mc);
 	struct timeval interval = { mc->data.keep_alive, 0 };
 	event_add(mc->timeout_evt, &interval);
 }
