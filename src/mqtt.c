@@ -865,7 +865,7 @@ evmqtt_t *evmqtt_create(struct event_base *base, evmqtt_error_handler_t err_hand
 	res->error_cb = err_handler;
 	res->userdata = userdata;
 	res->timeout_evt = event_new(res->base, -1, EV_TIMEOUT | EV_PERSIST, mqtt_timeout, res);
-	res->qos2_cleanup_evt = event_new(res->base, -1, EV_TIMEOUT | EV_PERSIST, qos2_cleanup, res)
+	res->qos2_cleanup_evt = event_new(res->base, -1, EV_TIMEOUT | EV_PERSIST, qos2_cleanup, res);
 
 	res->data.will_flag = false;
 
