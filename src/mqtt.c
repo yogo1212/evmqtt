@@ -902,8 +902,6 @@ static void mqtt_clear_incoming(evmqtt_t *mc)
 		HASH_DEL(mc->incoming_qos2, q);
 		free(q);
 	}
-
-	mc->incoming_qos2 = NULL;
 }
 
 static void mqtt_clear_retransmissions(evmqtt_t *mc)
