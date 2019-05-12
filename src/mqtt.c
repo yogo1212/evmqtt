@@ -37,6 +37,8 @@ struct evmqtt {
 	enum MQTT_STATE state;
 	uint16_t next_mid;
 	mqtt_retransmission_t *active_transmissions;
+
+	struct event *qos2_cleanup_evt;
 	mqtt_qos2msg_t *incoming_qos2;
 	mqtt_connect_data_t data;
 	evmqtt_message_handler_t msg_cb;
@@ -60,6 +62,7 @@ struct mqtt_retransmission {
 struct mqtt_qos2msg {
 	/* TODO maybe these should have timeouts? */
 	uint16_t mid;
+	time_t last;
 	UT_hash_handle hh;
 };
 
@@ -442,6 +445,8 @@ static void handle_connack(evmqtt_t *mc, mqtt_proto_header_t *hdr, void *buf, si
 
 	struct timeval interval = { mc->data.keep_alive, 0 };
 	event_add(mc->timeout_evt, &interval);
+	interval.tv_sec = 60;
+	event_add(mc->qos2_cleanup_evt, &interval);
 
 	mqtt_retransmission_t *r, *tmp;
 
@@ -504,6 +509,8 @@ static void handle_publish(evmqtt_t *mc, mqtt_proto_header_t *hdr, void *buf, si
 				mc->msg_cb(mc, topic, buf, len, hdr->retain, hdr->qos, mc->msg_cb_arg);
 			}
 		}
+
+		q->last = time();
 
 		mqtt_send_pubrec(mc, mid);
 	}
@@ -587,6 +594,27 @@ static void handle_unsuback(evmqtt_t *mc, mqtt_proto_header_t *hdr, void *buf, s
 	delete_retransmission(mc, mid);
 
 	call_debug_cb(mc, "received unsuback");
+}
+
+static void qos2_cleanup(evutil_socket_t fd, short events, void *arg)
+{
+	(void) fd;
+	(void) events;
+
+	// TODO configurable interval
+	time_t expired = time() - 600;
+
+	mqtt_qos2msg_t *q, *tmp;
+	HASH_ITER(hh, mc->incoming_qos2, q, tmp) {
+		if (q->last > expired)
+			continue;
+
+		HASH_DEL(mc->incoming_qos2, q);
+		free(q);
+	}
+
+	if (!mc->incoming_qos2)
+		event_del(mc->qos2_cleanup_evt);
 }
 
 static void mqtt_timeout(evutil_socket_t fd, short events, void *arg)
@@ -838,6 +866,7 @@ evmqtt_t *evmqtt_create(struct event_base *base, evmqtt_error_handler_t err_hand
 	res->error_cb = err_handler;
 	res->userdata = userdata;
 	res->timeout_evt = event_new(res->base, -1, EV_TIMEOUT | EV_PERSIST, mqtt_timeout, res);
+	res->qos2_cleanup_evt = event_new(res->base, -1, EV_TIMEOUT | EV_PERSIST, qos2_cleanup, res)
 
 	res->data.will_flag = false;
 
@@ -1019,6 +1048,7 @@ void evmqtt_free(evmqtt_t *mc)
 	}
 
 	event_free(mc->timeout_evt);
+	event_free(mc->qos2_cleanup_evt);
 
 	free(mc->data.username.buf);
 	free(mc->data.password.buf);
