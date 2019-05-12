@@ -299,7 +299,7 @@ int main(int argc, char *argv[])
 		evt_ssl_set_family(ms.essl, ms.mo.family);
 
 
-	evmqtt_setup(ms.evm, "some-evmqtt-client", 30, NULL /* user */, NULL /* pw */);
+	evmqtt_setup(ms.evm, NULL, 30, NULL /* user */, NULL /* pw */);
 	struct bufferevent *bev = evt_ssl_connect(ms.essl);
 	if (!bev) {
 		fprintf(stderr, "evt_ssl_connect failed");

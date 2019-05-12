@@ -195,7 +195,7 @@ bool mqtt_write_connect_data(mqtt_connect_data_t *data, char **out, size_t *outl
 		goto cleanup_proto_name;
 	}
 
-	uint8_t proto_version = data->proto_version;
+	uint8_t proto_level = data->proto_level;
 
 	uint8_t connect_flags = 0;
 	connect_flags |= ((data->clean_session ? 1 : 0) << 1);
@@ -213,13 +213,6 @@ bool mqtt_write_connect_data(mqtt_connect_data_t *data, char **out, size_t *outl
 	if (!mqtt_write_string(data->id.buf, data->id.len, &cid, &cid_len)) {
 		*out = malloc(cid_len + 512);
 		*outlen = sprintf(*out, "couldn't write id:\n\t%.*s", (int) cid_len, cid);
-		res = false;
-		goto cleanup_id;
-	}
-
-	if ((cid_len - 2 > 23) || (cid_len - 2 < 1)) {
-		*out = malloc(cid_len + 512);
-		*outlen = sprintf(*out, "id must be 1-23 UTF-8 characters long (%zu)", cid_len);
 		res = false;
 		goto cleanup_id;
 	}
@@ -288,7 +281,7 @@ bool mqtt_write_connect_data(mqtt_connect_data_t *data, char **out, size_t *outl
 
 assemble:
 	*outlen = proto_name_len
-	          + sizeof(proto_version)
+	          + sizeof(proto_level)
 	          + sizeof(connect_flags)
 	          + sizeof(keep_alive)
 	          + cid_len
@@ -300,7 +293,7 @@ assemble:
 
 	void *out_pnt = *out;
 	copy_to(&out_pnt, proto_name, proto_name_len);
-	copy_to(&out_pnt, &proto_version, sizeof(proto_version));
+	copy_to(&out_pnt, &proto_level, sizeof(proto_level));
 	copy_to(&out_pnt, &connect_flags, sizeof(connect_flags));
 	copy_to(&out_pnt, &keep_alive, sizeof(keep_alive));
 	copy_to(&out_pnt, cid, cid_len);
@@ -376,10 +369,16 @@ bool mqtt_write_string(const char *string, size_t stringlen, char **out, size_t 
 		return false;
 	}
 
+	if (data_len > UINT16_MAX) {
+		*out = malloc(1024);
+		*outlen = sprintf(*out, "to utf8 exceeding data size limit (%zu/%d)", data_len, UINT16_MAX);
+		return false;
+	}
+
 	*outlen = data_len + 2;
 	*out = malloc(*outlen);
 	void *bufpnt = *out;
-	mqtt_write_uint16(&bufpnt, get_utf8_char_count(data, data_len));
+	mqtt_write_uint16(&bufpnt, data_len);
 
 	memcpy(bufpnt, data, data_len);
 	free(data);

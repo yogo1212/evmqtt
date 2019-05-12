@@ -65,6 +65,14 @@ struct mqtt_qos2msg {
 	UT_hash_handle hh;
 };
 
+static uint16_t next_mid(evmqtt_t *mc)
+{
+	uint16_t res = htons(mc->next_mid++);
+	if (res == 0)
+		res = htons(mc->next_mid++);
+	return res;
+}
+
 static void retransmission_timeout(int fd, short evt, void *arg)
 {
 	(void) fd;
@@ -271,7 +279,7 @@ static void mqtt_send_subscribe(evmqtt_t *mc, const char *topic, uint8_t qos)
 	struct evbuffer *evb = evbuffer_new();
 
 	evbuffer_add(evb, hdrbuf, (uintptr_t) hdrbufpnt - (uintptr_t) hdrbuf);
-	uint16_t mid = htons(mc->next_mid++);
+	uint16_t mid = next_mid(mc);
 	evbuffer_add(evb, &mid, sizeof(mid));
 	evbuffer_add(evb, bufcpy, bufsize);
 	evbuffer_add(evb, &qos, sizeof(qos));
@@ -307,7 +315,7 @@ static void mqtt_send_unsubscribe(evmqtt_t *mc, const char *topic)
 	struct evbuffer *evb = evbuffer_new();
 
 	evbuffer_add(evb, hdrbuf, (uintptr_t) hdrbufpnt - (uintptr_t) hdrbuf);
-	uint16_t mid = htons(mc->next_mid++);
+	uint16_t mid = next_mid(mc);
 	evbuffer_add(evb, &mid, sizeof(mid));
 	evbuffer_add(evb, bufcpy, bufsize);
 
@@ -340,8 +348,9 @@ static void mqtt_send_publish(evmqtt_t *mc, const char *topic, const void *data,
 	evbuffer_add(evb, topicbuf, topicbufsize);
 
 	// this increases even for qos=0
-	uint16_t mid = htons(mc->next_mid++);
+	uint16_t mid;
 	if (qos > 0) {
+		mid = next_mid(mc);
 		evbuffer_add(evb, &mid, sizeof(mid));
 	}
 
@@ -434,6 +443,8 @@ static void handle_connack(evmqtt_t *mc, mqtt_proto_header_t *hdr, void *buf, si
 		mc->state = MQTT_STATE_ERROR;
 		return;
 	}
+
+	// TODO data.flags == MQTT_CONNACK_FLAGS_SESSION_PRESENT
 
 	mc->state = MQTT_STATE_CONNECTED;
 	if (mc->event_cb) {
@@ -576,10 +587,13 @@ static void handle_pubcomp(evmqtt_t *mc, mqtt_proto_header_t *hdr, void *buf, si
 static void handle_suback(evmqtt_t *mc, mqtt_proto_header_t *hdr, void *buf, size_t len)
 {
 	(void) hdr;
-	(void) len;
 
 	uint16_t mid = mqtt_read_uint16(&buf);
+	len -= sizeof(mid);
 	delete_retransmission(mc, mid);
+
+	// TODO buf contains byte for each subscription
+	// either QoS (0,1,2) or failure (0x80)
 
 	call_debug_cb(mc, "received suback");
 }
@@ -875,7 +889,7 @@ evmqtt_t *evmqtt_create(struct event_base *base, evmqtt_error_handler_t err_hand
 
 	res->data.proto_name.buf = strdup(MQTT_PROTOCOL_MAGIC);
 	res->data.proto_name.len = strlen(MQTT_PROTOCOL_MAGIC);
-	res->data.proto_version = MQTT_PROTOCOL_MAJOR;
+	res->data.proto_level = MQTT_PROTOCOL_LEVEL;
 
 	res->event_cb = NULL;
 	res->debug_cb = NULL;
@@ -936,15 +950,15 @@ void evmqtt_setup(evmqtt_t *mc, char *id, uint16_t keep_alive, char *username, c
 	}
 
 	if (id) {
+		// TODO error if id is longer than that
 		mc->data.id.len = strnlen(id, 23) + 1;
 		mc->data.id.buf = malloc(mc->data.id.len);
 		memcpy(mc->data.id.buf, id, mc->data.id.len);
 		((char *) mc->data.id.buf)[mc->data.id.len - 1] = '\0';
 	}
 	else {
-		// TODO
-		mc->data.id.buf = malloc(20);
-		mc->data.id.len = snprintf(mc->data.id.buf, 20, "eyeyeyey%dlol", getpid());
+		mc->data.id.buf = strdup("");
+		mc->data.id.len = 0;
 	}
 
 	if (username) {

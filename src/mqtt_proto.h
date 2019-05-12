@@ -5,11 +5,10 @@
 #include <stdint.h>
 #include <unistd.h>
 
-#define MQTT_PROTOCOL_MAJOR 3
-#define MQTT_PROTOCOL_MINOR 1
-#define MQTT_PROTOCOL_VERSION "MQTT/3.1"
+#define MQTT_PROTOCOL_LEVEL 4
+#define MQTT_PROTOCOL_VERSION "MQTT/3.1.1"
 /* THIS SOURCE FILE MUST BE UTF-8 ENCODED!! */
-#define MQTT_PROTOCOL_MAGIC "MQIsdp"
+#define MQTT_PROTOCOL_MAGIC "MQTT"
 
 // max size 32,767
 #define MAX_TOPIC_SIZE (0x8000)
@@ -53,7 +52,7 @@ typedef struct {
 	// ok - size prefix are great but annoying in C.
 	// since some of these fields might contain zeros
 	memchunk_t proto_name;
-	uint8_t proto_version, will_qos;
+	uint8_t proto_level, will_qos;
 	bool will_retain, will_flag, clean_session;
 	uint16_t keep_alive;
 	memchunk_t id, will_topic, will_message, username, password;
@@ -62,6 +61,8 @@ typedef struct {
 void mqtt_read_connect_data(uint8_t **buf, mqtt_connect_data_t *data);
 bool mqtt_write_connect_data(mqtt_connect_data_t *data, char **out, size_t *outlen);
 size_t mqtt_get_connect_data_wire_size(mqtt_connect_data_t *data);
+
+#define MQTT_CONNACK_FLAGS_SESSION_PRESENT 0x01
 
 enum MQTT_CONNACK_CODE {
 	MQTT_CONNACK_ACCEPTED = 0,
@@ -75,8 +76,9 @@ enum MQTT_CONNACK_CODE {
 const char *mqtt_connack_code_str(enum MQTT_CONNACK_CODE code);
 
 typedef struct {
+	uint8_t flags;
 	uint8_t return_code;
-} mqtt_connack_data_t;
+} __attribute__((packed)) mqtt_connack_data_t;
 
 void mqtt_read_connack_data(void **buf, mqtt_connack_data_t *data);
 
