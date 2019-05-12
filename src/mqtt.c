@@ -600,6 +600,8 @@ static void qos2_cleanup(evutil_socket_t fd, short events, void *arg)
 	(void) fd;
 	(void) events;
 
+	evmqtt_t *mc = (evmqtt_t *) arg;
+
 	// TODO configurable interval
 	time_t expired = time(NULL) - 600;
 
