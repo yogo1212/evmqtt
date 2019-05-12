@@ -509,7 +509,7 @@ static void handle_publish(evmqtt_t *mc, mqtt_proto_header_t *hdr, void *buf, si
 			}
 		}
 
-		q->last = time();
+		q->last = time(NULL);
 
 		mqtt_send_pubrec(mc, mid);
 	}
@@ -601,7 +601,7 @@ static void qos2_cleanup(evutil_socket_t fd, short events, void *arg)
 	(void) events;
 
 	// TODO configurable interval
-	time_t expired = time() - 600;
+	time_t expired = time(NULL) - 600;
 
 	mqtt_qos2msg_t *q, *tmp;
 	HASH_ITER(hh, mc->incoming_qos2, q, tmp) {
