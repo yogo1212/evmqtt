@@ -76,13 +76,13 @@ format: $(SOURCES) $(EXSOURCES) $(HEADERS)
 tab_format: $(SOURCES) $(EXSOURCES) $(HEADERS)
 	tools/tab_format $^
 
+ROOT ?= /
+usr ?= usr/local
 
-prefix ?= /usr/local
-
-INSTALLDIR = $(prefix)/
-LIBINSTALLDIR = $(INSTALLDIR)lib/
-HEADERINSTALLDIR = $(INSTALLDIR)include/$(NAME)/
-EXAMPLESINSTALLDIR = $(INSTALLDIR)bin/
+usrdir = $(ROOT)$(usr)
+LIBINSTALLDIR = $(usrdir)lib/
+HEADERINSTALLDIR = $(usrdir)include/$(NAME)/
+EXAMPLESINSTALLDIR = $(usrdir)bin/
 
 INSTALL_BIN_CMD=install -m 0755
 
