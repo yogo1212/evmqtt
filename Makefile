@@ -53,14 +53,14 @@ $(LIBBIN): % : %.$(VERSION)
 
 
 $(LIBBIN).$(VERSION): $(OBJECTS) | $(BINDIR)
-	$(CC) $(LIBLDFLAGS) $^ -o $@
+	$(CC) $^ -o $@ $(LIBLDFLAGS)
 	chmod 755 $@
 
 $(OBJECTS): $(OBJDIR)/%.o : $(SRCDIR)/%.c | $(OBJDIR)
-	$(CC) $(LIBCFLAGS) -c $< -o $@
+	$(CC) -c $< -o $@ $(LIBCFLAGS)
 
 $(EXBINS): $(BINDIR)/% : $(EXSRCDIR)/%.c | $(BINDIR) $(LIBBIN)
-	$(CC) $(CFLAGS) $(EXLDFLAGS) $< -o $@
+	$(CC) $< -o $@ $(CFLAGS) $(EXLDFLAGS)
 
 $(DIRS):
 	mkdir -p $@
