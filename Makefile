@@ -23,7 +23,7 @@ LDFLAGS += -levent -levent_openssl -lssl -lcrypto -lpcre
 LIBCFLAGS := $(CFLAGS) -fPIC
 LIBLDFLAGS := $(LDFLAGS) -shared
 
-EXLDFLAGS := $(LDFLAGS) -l$(NAME) -levtssl -L$(BINDIR)/
+EXLDFLAGS := $(LDFLAGS) -levtssl -L$(BINDIR)/ -l$(NAME)
 
 SOURCES = $(wildcard $(SRCDIR)/*.c)
 OBJECTS = $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(SOURCES))
@@ -59,7 +59,7 @@ $(LIBBIN).$(VERSION): $(OBJECTS) | $(BINDIR)
 $(OBJECTS): $(OBJDIR)/%.o : $(SRCDIR)/%.c | $(OBJDIR)
 	$(CC) $(LIBCFLAGS) -c $< -o $@
 
-$(EXBINS): $(BINDIR)/% : $(EXSRCDIR)/%.c | $(BINDIR)
+$(EXBINS): $(BINDIR)/% : $(EXSRCDIR)/%.c | $(BINDIR) $(LIBBIN)
 	$(CC) $(CFLAGS) $(EXLDFLAGS) $< -o $@
 
 $(DIRS):
