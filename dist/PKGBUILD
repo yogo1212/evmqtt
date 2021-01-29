@@ -1,0 +1,31 @@
+pkgname=libevmqtt-git
+pkgver=1.0
+pkgrel=1
+pkgdesc="MQTT implementation using libevent"
+arch=('x86_64' 'armv7h' 'aarch64')
+url="https://github.com/yogo1212/evmqtt"
+provides=('libevmqtt')
+conflicts=('libevmqtt')
+license=('Unlicense')
+makedepends=('git' 'gcc' 'make')
+depends=('libevent' 'pcre' 'libevtssl')
+source=(git://github.com/yogo1212/evmqtt.git)
+sha256sums=('SKIP')
+
+pkgver() {
+  cd evmqtt
+
+	git describe --tags | sed 's/^v//' | tr - _
+}
+
+build() {
+  cd evmqtt
+
+  make all
+}
+
+package() {
+	cd evmqtt
+
+  make install ROOT="$pkgdir/" usr=usr/
+}
