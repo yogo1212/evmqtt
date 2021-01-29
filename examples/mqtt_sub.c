@@ -197,8 +197,10 @@ static bool parse_args(ms_opts_t *mo, int argc, char *argv[], mqtt_subscription_
 	return true;
 }
 
-static const char *config_ssl(evt_ssl_t *essl, SSL_CTX *ssl_ctx)
+static const char *config_ssl(evt_ssl_t *essl, SSL_CTX *ssl_ctx, void *ctx)
 {
+	(void) ctx;
+
 	mqtt_sub_t *ms = evt_ssl_get_ctx(essl);
 
 	if (ms->mo.cafile || ms->mo.cadir) {
@@ -282,7 +284,6 @@ int main(int argc, char *argv[])
 	                         ms.mo.host,
 	                         ms.mo.port,
 	                         &ms,
-	                         config_ssl,
 	                         ssl_error_cb
 	                        );
 
@@ -290,6 +291,12 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "failed to init essl\n");
 		res = EXIT_FAILURE;
 		goto base_cleanup;
+	}
+
+	if (!evt_ssl_reconfigure(ms.essl, config_ssl, NULL)) {
+		fprintf(stderr, "essl reconfigure\n");
+		res = EXIT_FAILURE;
+		goto cleanup_essl;
 	}
 
 	if (!ms.mo.ssl)
@@ -319,6 +326,7 @@ ouch:
 
 	evmqtt_free(ms.evm);
 
+cleanup_essl:
 	evt_ssl_free(ms.essl);
 
 base_cleanup:
