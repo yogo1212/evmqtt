@@ -122,7 +122,7 @@ void mqtt_msgcb(evmqtt_t *conn, const char *topic, const void *message, size_t l
 
 // TODO option, arg, param... naming?
 
-static bool parse_args(ms_opts_t *mo, int argc, char *argv[], mqtt_subscription_engine_t *mse)
+static bool parse_args(ms_opts_t *mo, int argc, char *argv[], mqtt_sub_t *ms)
 {
 	int c;
 	memset(mo, 0, sizeof(ms_opts_t));
@@ -183,9 +183,13 @@ static bool parse_args(ms_opts_t *mo, int argc, char *argv[], mqtt_subscription_
 			}
 			break;
 		case 't':
-			if (!mqtt_subscription_engine_add_sub(mse, optarg, last_qos, mqtt_msgcb, optarg)) {
+			if (!ms->mse)
+				ms->mse = mqtt_subscription_engine_new(ms->evm);
+
+			if (!mqtt_subscription_engine_add_sub(ms->mse, optarg, last_qos, mqtt_msgcb, optarg)) {
 				fprintf(stderr, "couldn't add topic \"%s\" (%u)\n", optarg, last_qos);
 			}
+
 			last_qos = 1;
 			break;
 		default:
@@ -241,15 +245,14 @@ void mqtt_evtcb(evmqtt_t *conn, enum evmqtt_event evt)
 
 	switch (evt) {
 		case MQTT_EVENT_CONNECTED:
-			mqtt_subscription_engine_activate(ms->mse);
+			if (ms->mse)
+				mqtt_subscription_engine_activate(ms->mse);
 			break;
-
 		case MQTT_EVENT_DISCONNECTED:
 			// TODO reconnect-logic?
 			fprintf(stderr, "disconnected\n");
 			event_base_loopbreak(ms->base);
 			break;
-
 		default:
 			;
 	}
@@ -270,9 +273,9 @@ int main(int argc, char *argv[])
 	}
 
 	ms.evm = evmqtt_create(ms.base, mqtt_errorcb, &ms);
-	ms.mse = mqtt_subscription_engine_new(ms.evm);
+	ms.mse = NULL;
 
-	if (!parse_args(&ms.mo, argc, argv, ms.mse)) {
+	if (!parse_args(&ms.mo, argc, argv, &ms)) {
 		fprintf(stderr, "couldn't parse args\n");
 		return EXIT_FAILURE;
 	}
@@ -322,7 +325,8 @@ int main(int argc, char *argv[])
 	event_free(ms.sig_event);
 
 ouch:
-	mqtt_subscription_engine_free(ms.mse);
+	if (ms.mse)
+		mqtt_subscription_engine_free(ms.mse);
 
 	evmqtt_free(ms.evm);
 
