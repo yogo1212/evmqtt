@@ -489,7 +489,8 @@ static void handle_publish(evmqtt_t *mc, mqtt_proto_header_t *hdr, void *buf, si
 		return;
 	}
 
-	uint16_t mid;
+	// compiler doesn't recognize that mid has been read from the buffer later..
+	uint16_t mid = 0;
 
 	if (hdr->qos > 0) {
 		mid = mqtt_read_uint16(&buf);
@@ -504,7 +505,6 @@ static void handle_publish(evmqtt_t *mc, mqtt_proto_header_t *hdr, void *buf, si
 		if (hdr->qos == 1) {
 			mqtt_send_puback(mc, mid);
 		}
-
 	}
 	else {
 		mqtt_qos2msg_t *q;
