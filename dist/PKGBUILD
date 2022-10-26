@@ -9,7 +9,7 @@ conflicts=('libevmqtt')
 license=('Unlicense')
 makedepends=('git' 'gcc' 'make')
 depends=('libevent' 'pcre' 'libevtssl')
-source=(git://github.com/yogo1212/evmqtt.git)
+source=(git+https://github.com/yogo1212/evmqtt.git)
 sha256sums=('SKIP')
 
 pkgver() {
