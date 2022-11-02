@@ -33,6 +33,8 @@ typedef struct {
 	evt_ssl_t *essl;
 	evmqtt_t *evm;
 	mqtt_subscription_engine_t *mse;
+	int pub_argc;
+	const char **pub_argv;
 
 	ms_opts_t mo;
 } mqtt_sub_t;
@@ -98,7 +100,7 @@ static void print_help(void)
 		opt++;
 	}
 	puts("family can be either 4 or 6 (unspec elsewise)");
-	puts("-t TOPIC specifies the topic for a new subscription");
+	puts("-s TOPIC specifies the topic for a new subscription");
 	puts("-q 0-2 sets the QoS for the next subscription (default: 1)");
 }
 
@@ -129,7 +131,7 @@ static bool parse_args(ms_opts_t *mo, int argc, char *argv[], mqtt_sub_t *ms)
 
 	uint8_t last_qos = 1;
 
-	while ((c = getopt_long(argc, argv, "q:t:", options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "q:s:", options, NULL)) != -1) {
 		if ((c == '?') || (c == ':')) {
 			fprintf(stderr, "getopt failed (%c)\n", c);
 			break;
@@ -182,7 +184,7 @@ static bool parse_args(ms_opts_t *mo, int argc, char *argv[], mqtt_sub_t *ms)
 				last_qos = 1;
 			}
 			break;
-		case 't':
+		case 's':
 			if (!ms->mse)
 				ms->mse = mqtt_subscription_engine_new(ms->evm);
 
@@ -197,6 +199,9 @@ static bool parse_args(ms_opts_t *mo, int argc, char *argv[], mqtt_sub_t *ms)
 			break;
 		}
 	}
+
+	ms->pub_argc = argc - optind;
+	ms->pub_argv = (const char **) &argv[optind];
 
 	return true;
 }
@@ -239,6 +244,35 @@ void mqtt_errorcb(evmqtt_t *conn, enum evmqtt_error err, char *errormsg)
 	fprintf(stderr, "mqtt-error %d: %s\n", err, errormsg);
 }
 
+static void publish(mqtt_sub_t *ms, evmqtt_t *mq)
+{
+	for (int i = 0; i < ms->pub_argc; i++) {
+		uint8_t qos = 1;
+
+		const char *topic = ms->pub_argv[i];
+
+		if (++i == ms->pub_argc) {
+			fprintf(stderr, "missing message for topic: %s\n", topic);
+			break;
+		}
+
+		if (topic[0] == '+') {
+			qos = topic[1] - '0';
+			topic = &topic[2];
+			if (qos > 2) {
+				fprintf(stderr, "invalid qos (%" PRIu8 ") for topic: %s\n", qos, topic);
+				break;
+			}
+		}
+
+		const char *msg = ms->pub_argv[i];
+		evmqtt_pub(mq, topic, msg, strlen(msg), qos, false);
+	}
+
+	// cheap way to avoid republishing
+	ms->pub_argc = 0;
+}
+
 void mqtt_evtcb(evmqtt_t *conn, enum evmqtt_event evt)
 {
   mqtt_sub_t *ms = evmqtt_userdata(conn);
@@ -247,6 +281,12 @@ void mqtt_evtcb(evmqtt_t *conn, enum evmqtt_event evt)
 		case MQTT_EVENT_CONNECTED:
 			if (ms->mse)
 				mqtt_subscription_engine_activate(ms->mse);
+
+			publish(ms, conn);
+
+			// if (!ms->mse)
+				// TODO wait for all publishes to be acked
+
 			break;
 		case MQTT_EVENT_DISCONNECTED:
 			// TODO reconnect-logic?
