@@ -489,42 +489,41 @@ static void handle_publish(evmqtt_t *mc, mqtt_proto_header_t *hdr, void *buf, si
 		return;
 	}
 
-	// compiler doesn't recognize that mid has been read from the buffer later..
-	uint16_t mid = 0;
+	uint16_t mid;
 
 	if (hdr->qos > 0) {
 		mid = mqtt_read_uint16(&buf);
 		len -= 2;
-	}
-
-	if (hdr->qos < 2) {
-		if (mc->msg_cb) {
-			mc->msg_cb(mc, topic, buf, len, hdr->retain, hdr->qos, mc->msg_cb_arg);
-		}
 
 		if (hdr->qos == 1) {
 			mqtt_send_puback(mc, mid);
+			goto call;
 		}
-	}
-	else {
-		mqtt_qos2msg_t *q;
-		HASH_FIND(hh, mc->incoming_qos2, &mid, sizeof(mid), q);
 
-		if (!q) {
-			q = malloc(sizeof(mqtt_qos2msg_t));
-			q->mid = mid;
-			HASH_ADD(hh, mc->incoming_qos2, mid, sizeof(mid), q);
+		if (hdr->qos == 2) {
+			mqtt_qos2msg_t *q;
+			HASH_FIND(hh, mc->incoming_qos2, &mid, sizeof(mid), q);
 
-			if (mc->msg_cb) {
-				mc->msg_cb(mc, topic, buf, len, hdr->retain, hdr->qos, mc->msg_cb_arg);
+			if (!q) {
+				q = malloc(sizeof(mqtt_qos2msg_t));
+				q->mid = mid;
+				HASH_ADD(hh, mc->incoming_qos2, mid, sizeof(mid), q);
+
+				goto call;
 			}
+
+			q->last = time(NULL);
+			mqtt_send_pubrec(mc, mid);
+
+			goto out;
 		}
-
-		q->last = time(NULL);
-
-		mqtt_send_pubrec(mc, mid);
 	}
 
+call:
+	if (mc->msg_cb)
+		mc->msg_cb(mc, topic, buf, len, hdr->retain, hdr->qos, mc->msg_cb_arg);
+
+out:
 	free(topic);
 
 	call_debug_cb(mc, "received publish");
