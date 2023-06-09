@@ -1,12 +1,11 @@
-#include <pcre.h>
+#define PCRE2_CODE_UNIT_WIDTH 8
+#include <pcre2.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-
 #include <uthash.h>
 
 #include "evmqtt/mqtt.h"
-
 #include "evmqtt/util.h"
 
 struct mqtt_subscription;
@@ -30,8 +29,7 @@ struct mqtt_subscription {
 	char *topic;
 	uint8_t qos;
 
-	pcre *topic_regex;
-	pcre_extra *topic_regex_extra;
+	pcre2_code *topic_regex;
 
 	size_t handlers_size;
 	mqtt_subscription_handler_t *handlers;
@@ -72,32 +70,31 @@ static char *dull_replace(const char *in, const char *pattern, const char *by)
 	return res;
 }
 
-static bool subscription_matches_topic(mqtt_subscription_t *sub, const char *topic)
+static const char *_pcre_error_str(int error_code)
 {
-	int pcreExecRet;
-	int subStrVec[3 * 10];
+	static char buf[256];
+	if (pcre2_get_error_message(error_code, (PCRE2_UCHAR8 *) buf, sizeof(buf)) < 0)
+		return "unknown error";
 
-	pcreExecRet = pcre_exec(sub->topic_regex,
-		        sub->topic_regex_extra,
-		        topic,
-		        strlen(topic),  // length of string
-		        0,	        // Start looking at this point
-		        0,	        // OPTIONS
-		        subStrVec,
-		        sizeof(subStrVec)); // Length of subStrVec
+	return buf;
+}
 
-	// Report what happened in the pcre_exec call..
-	if (pcreExecRet < -1) { // Something dreadful happened..
-		fprintf(stderr, "got pcreExecRet %d", pcreExecRet);
+static bool subscription_matches_topic(mqtt_subscription_t *sub, const char *topic, pcre2_match_data *match_data)
+{
+	// TODO are PCRE2_ANCHORED and PCRE2_ENDANCHORED needed?
+	int match = pcre2_match(sub->topic_regex, (PCRE2_SPTR8) topic, strlen(topic), 0,
+		PCRE2_ANCHORED | PCRE2_ENDANCHORED, match_data, NULL);
+
+	if (match == PCRE2_ERROR_NOMATCH)
+		return false;
+
+	if (match < 0) {
+		fprintf(stderr, "pcre2_match failed: %s\n", _pcre_error_str(match));
 		return false;
 	}
-	else if (pcreExecRet == PCRE_ERROR_NOMATCH) {
-		return false;
-	}
-	else {
-		// we aren't using groups anyway, so we can ignore pcreExecRet == 0
-		return true;
-	}
+
+	// we aren't using groups anyway, so we can ignore match == 0
+	return true;
 }
 
 static void mqtt_subscription_notify_handlers(mqtt_subscription_t *sub, mqtt_subscription_engine_t *se, const char *topic, const void *message, size_t len, bool retain, uint8_t qos)
@@ -149,25 +146,16 @@ static void mqtt_subscription_remove_handler(mqtt_subscription_t *sub, evmqtt_me
 
 static mqtt_subscription_t *mqtt_subscription_new(mqtt_subscription_engine_t *se, const char *topic, uint8_t qos)
 {
-	if (((topic == NULL) || (strlen(topic) == 0))) {
+	if (!topic || (strlen(topic) == 0))
 		return NULL;
-	}
 
-	char *regex = NULL, *tmp;
-	tmp = dull_replace(topic, "+", "[^/\\x00]*");
-	regex = dull_replace(tmp, "#", ".*");
+	char *tmp = dull_replace(topic, "+", "[^/\\x00]*");
+	char *tmp2 = dull_replace(tmp, "#", ".*");
 	free(tmp);
-
-	size_t rexlen = strlen(regex);
-	tmp = alloca(rexlen + 3);
-	memcpy(&tmp[1], regex, rexlen);
-	tmp[0] = '^';
-	tmp[rexlen + 1] = '$';
-	tmp[rexlen + 2] = '\0';
-
-	free(regex);
-
-	regex = tmp;
+	size_t regex_len = strlen(tmp2);
+	const char *regex = alloca(regex_len + 1);
+	memcpy((char *) regex, tmp2, regex_len + 1);
+	free(tmp2);
 
 	mqtt_subscription_t *res = malloc(sizeof(mqtt_subscription_t));
 
@@ -175,29 +163,18 @@ static mqtt_subscription_t *mqtt_subscription_new(mqtt_subscription_engine_t *se
 	res->qos = qos;
 	res->se = se;
 
-	const char *pcreErrorStr = NULL;
-	int pcreErrorOffset = 0;
+	int pcre_error = 0;
+	size_t pcre_error_offset;
 
-	// First, the regex string must be compiled.
-	res->topic_regex = pcre_compile(regex, 0, &pcreErrorStr, &pcreErrorOffset, NULL);
-
-	// pcre_compile returns NULL on error, and sets pcreErrorOffset & pcreErrorStr
-	if (res->topic_regex == NULL) {
-		fprintf(stderr, "regex: Could not compile '%s': %s (%d)", regex, pcreErrorStr, pcreErrorOffset);
+	res->topic_regex = pcre2_compile((PCRE2_SPTR8) regex, PCRE2_ZERO_TERMINATED, 0, &pcre_error, &pcre_error_offset, NULL);
+	if (!res->topic_regex) {
+		fprintf(stderr, "regex: could not compile '%s': %s (at %zu)\n", regex, _pcre_error_str(pcre_error), pcre_error_offset);
 		goto error;
 	}
 
-	// Optimize the regex
-	res->topic_regex_extra = pcre_study(res->topic_regex, 0, &pcreErrorStr);
-
-	/*
-	 * pcre_study() returns NULL for both errors and when it can not optimize the regex.
-	 * The last argument is how one checks for errors
-	 * it is NULL if everything works, and points to an error string otherwise.
-	 */
-	if (pcreErrorStr != NULL) {
-		fprintf(stderr, "regex: Could not study '%s': %s", regex, pcreErrorStr);
-	}
+	int jit_error = pcre2_jit_compile(res->topic_regex, PCRE2_JIT_COMPLETE);
+	if (jit_error != 0)
+		fprintf(stderr, "regex: could not compile jit for '%s': %d\n", regex, jit_error);
 
 	res->handlers_size = 0;
 	res->handlers = NULL;
@@ -219,13 +196,7 @@ static void mqtt_subscription_free(mqtt_subscription_t *sub)
 
 	free(sub->handlers);
 
-	// free the EXTRA PCRE value (may be NULL at this point)
-	if (sub->topic_regex_extra != NULL) {
-		pcre_free(sub->topic_regex_extra);
-	}
-
-	// free the regular expression.
-	pcre_free(sub->topic_regex);
+	pcre2_code_free(sub->topic_regex);
 
 	free(sub->topic);
 	free(sub);
@@ -237,12 +208,16 @@ static void _mqtt_subscription_engine_msg_handler(evmqtt_t *mc, const char *topi
 
 	mqtt_subscription_engine_t *se = arg;
 
+	pcre2_match_data *match_data = pcre2_match_data_create(5, NULL);
+
 	mqtt_subscription_t *sub, *tmp;
 	HASH_ITER(hh, se->subs, sub, tmp) {
-		if (subscription_matches_topic(sub, topic)) {
+		if (subscription_matches_topic(sub, topic, match_data)) {
 			mqtt_subscription_notify_handlers(sub, se, topic, message, len, retain, qos);
 		}
 	}
+
+	pcre2_match_data_free(match_data);
 }
 
 mqtt_subscription_engine_t *mqtt_subscription_engine_new(evmqtt_t *evm)

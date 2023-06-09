@@ -8,7 +8,7 @@ provides=('libevmqtt')
 conflicts=('libevmqtt')
 license=('Unlicense')
 makedepends=('git' 'gcc' 'make')
-depends=('libevent' 'pcre' 'libevtssl')
+depends=('libevent' 'pcre2' 'libevtssl')
 source=(git+https://github.com/yogo1212/evmqtt.git)
 sha256sums=('SKIP')
 
