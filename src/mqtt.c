@@ -679,10 +679,7 @@ static void event_callback(struct bufferevent *bev, short what, void *ctx)
 			return;
 		}
 
-		char buf[1024];
-		sprintf(buf, "socket closed");
-
-		call_error_cb(mc, MQTT_ERROR_NETWORK, buf);
+		call_error_cb(mc, MQTT_ERROR_NETWORK, "socket closed");
 	}
 
 	if (what & BEV_EVENT_ERROR) {
