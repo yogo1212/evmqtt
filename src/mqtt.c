@@ -18,7 +18,6 @@ enum MQTT_STATE {
 	MQTT_STATE_CONNECTED,
 	MQTT_STATE_DISCONNECTING,
 	MQTT_STATE_DISCONNECTED,
-	MQTT_STATE_ERROR
 };
 
 struct mqtt_retransmission;
@@ -177,15 +176,11 @@ static void delete_retransmission(evmqtt_t *mc, uint16_t mid)
 	}
 }
 
+static void _evmqtt_disconnect(evmqtt_t *mc, bool graceful);
+
 static void call_error_cb(evmqtt_t *mc, enum evmqtt_error err, const char *errstr)
 {
-	if (mc->state == MQTT_STATE_CONNECTED) {
-		mc->state = MQTT_STATE_ERROR;
-		evmqtt_disconnect(mc);
-	}
-	else {
-		mc->state = MQTT_STATE_ERROR;
-	}
+	_evmqtt_disconnect(mc, false);
 
 	char *error = alloca(strlen(errstr) + 1);
 	strcpy(error, errstr);
@@ -440,7 +435,6 @@ static void handle_connack(evmqtt_t *mc, mqtt_proto_header_t *hdr, void *buf, si
 
 	if (data.return_code != MQTT_CONNACK_ACCEPTED) {
 		call_error_cb(mc, MQTT_ERROR_CONNECT, mqtt_connack_code_str(data.return_code));
-		mc->state = MQTT_STATE_ERROR;
 		return;
 	}
 
@@ -631,6 +625,45 @@ static void qos2_cleanup(evutil_socket_t fd, short events, void *arg)
 		event_del(mc->qos2_cleanup_evt);
 }
 
+static void _evmqtt_disconnect(evmqtt_t *mc, bool graceful)
+{
+	char buf[1024];
+
+	switch (mc->state) {
+		case MQTT_STATE_CONNECTED:
+			if (!graceful)
+				break;
+
+			mc->state = MQTT_STATE_DISCONNECTING;
+			if (mc->event_cb) {
+				mc->event_cb(mc, MQTT_EVENT_DISCONNECTED);
+			}
+			mqtt_send_disconnect(mc);
+			struct timeval interval = { 1, 0 };
+			event_add(mc->timeout_evt, &interval);
+			return;
+
+		case MQTT_STATE_PREPARING:
+		case MQTT_STATE_DISCONNECTED:
+			return;
+
+		case MQTT_STATE_DISCONNECTING:
+			break;
+
+		default:
+			sprintf(buf, "can't disconnect from this state: %d", mc->state);
+			call_error_cb(mc, MQTT_ERROR_STATE, buf);
+	}
+
+	if (mc->bev) {
+		bufferevent_free(mc->bev);
+		mc->bev = NULL;
+	}
+
+	event_del(mc->timeout_evt);
+	mc->state = MQTT_STATE_DISCONNECTED;
+}
+
 static void mqtt_timeout(evutil_socket_t fd, short events, void *arg)
 {
 	(void) fd;
@@ -654,7 +687,7 @@ static void mqtt_timeout(evutil_socket_t fd, short events, void *arg)
 			break;
 
 		case MQTT_STATE_DISCONNECTING:
-			evmqtt_disconnect(mc);
+			_evmqtt_disconnect(mc, false);
 			break;
 
 		default:
@@ -977,23 +1010,16 @@ void evmqtt_setup(evmqtt_t *mc, char *id, uint16_t keep_alive, char *username, c
 
 void evmqtt_connect(evmqtt_t *mc, struct bufferevent *bev, bool clean_session)
 {
-	if (mc ->state == MQTT_STATE_CONNECTED) {
-		evmqtt_disconnect(mc);
+	_evmqtt_disconnect(mc, false);
+
+	if (!bev) {
+		call_error_cb(mc, MQTT_ERROR_HARD, "got a NULL bufferevent");
+		return;
 	}
 
 	mc->state = MQTT_STATE_CONNECTING;
 
-	if (mc->bev) {
-		bufferevent_free(mc->bev);
-	}
-
 	mc->bev = bev;
-
-	if (!mc->bev) {
-		call_error_cb(mc, MQTT_ERROR_HARD, "got a NULL bufferevent");
-		mc->state = MQTT_STATE_DISCONNECTED;
-		return;
-	}
 
 	bufferevent_setwatermark(mc->bev, EV_READ, 2, 0);
 	bufferevent_setcb(mc->bev, read_callback, NULL, event_callback, mc);
@@ -1011,39 +1037,7 @@ void evmqtt_connect(evmqtt_t *mc, struct bufferevent *bev, bool clean_session)
 
 void evmqtt_disconnect(evmqtt_t *mc)
 {
-	char buf[1024];
-
-	switch (mc->state) {
-		case MQTT_STATE_CONNECTED:
-			mc->state = MQTT_STATE_DISCONNECTING;
-			if (mc->event_cb) {
-				mc->event_cb(mc, MQTT_EVENT_DISCONNECTED);
-			}
-			mqtt_send_disconnect(mc);
-			struct timeval interval = { 1, 0 };
-			event_add(mc->timeout_evt, &interval);
-			return;
-
-		case MQTT_STATE_PREPARING:
-		case MQTT_STATE_DISCONNECTED:
-			return;
-
-		case MQTT_STATE_DISCONNECTING:
-		case MQTT_STATE_ERROR:
-			break;
-
-		default:
-			sprintf(buf, "can't disconnect from this state: %d", mc->state);
-			call_error_cb(mc, MQTT_ERROR_STATE, buf);
-	}
-
-	if (mc->bev) {
-		bufferevent_free(mc->bev);
-		mc->bev = NULL;
-	}
-
-	event_del(mc->timeout_evt);
-	mc->state = MQTT_STATE_DISCONNECTED;
+	_evmqtt_disconnect(mc, true);
 }
 
 void evmqtt_free(evmqtt_t *mc)
