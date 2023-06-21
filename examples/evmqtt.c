@@ -29,6 +29,7 @@ typedef struct {
 typedef struct {
 	struct event_base *base;
 	struct event *sig_event;
+	struct event *sigterm_event;
 
 	evt_ssl_t *essl;
 	evmqtt_t *evm;
@@ -359,9 +360,12 @@ int main(int argc, char *argv[])
 	evmqtt_set_event_cb(ms.evm, mqtt_evtcb);
 
 	ms.sig_event = evsignal_new(ms.base, SIGINT, handle_interrupt, &ms);
+	ms.sigterm_event = evsignal_new(ms.base, SIGTERM, handle_interrupt, &ms);
 
 	event_add(ms.sig_event, NULL);
+	event_add(ms.sigterm_event, NULL);
 	event_base_dispatch(ms.base);
+	event_free(ms.sigterm_event);
 	event_free(ms.sig_event);
 
 ouch:
