@@ -109,13 +109,13 @@ void mqtt_msgcb(evmqtt_t *conn, const char *topic, const void *message, size_t l
 	(void) retain;
 	(void) qos;
 
-	ms_opts_t *cfg = evmqtt_userdata(conn);
+	mqtt_sub_t *ms = evmqtt_userdata(conn);
 
 	if (arg) {
 		printf("%s|", (char *) arg);
 	}
 
-	if (cfg->verbose) {
+	if (ms->mo.verbose) {
 		printf("%s: ", topic);
 	}
 
