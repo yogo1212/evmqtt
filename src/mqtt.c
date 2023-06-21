@@ -659,7 +659,7 @@ static void mqtt_timeout(evutil_socket_t fd, short events, void *arg)
 
 		default:
 			event_del(mc->timeout_evt);
-			call_error_cb(mc, MQTT_ERROR_UNKNOWN, "checking for timout in unknown state!");
+			call_error_cb(mc, MQTT_ERROR_UNKNOWN, "checking for timeout in unknown state!");
 	}
 
 	return;
