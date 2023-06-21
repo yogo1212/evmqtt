@@ -21,7 +21,7 @@ pkgver() {
 build() {
   cd evmqtt
 
-  make all
+  make all examples
 }
 
 package() {
