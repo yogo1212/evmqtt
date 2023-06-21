@@ -936,7 +936,6 @@ void evmqtt_setup(evmqtt_t *mc, char *id, uint16_t keep_alive, char *username, c
 		return;
 	}
 
-	mc->state = MQTT_STATE_CONNECTING;
 	mc->awaiting_ping = false;
 
 	mc->data.keep_alive = keep_alive;
