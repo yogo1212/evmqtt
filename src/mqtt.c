@@ -932,7 +932,7 @@ static void mqtt_clear_inflight(evmqtt_t *mc)
 void evmqtt_setup(evmqtt_t *mc, char *id, uint16_t keep_alive, char *username, char *password)
 {
 	if (mc->state != MQTT_STATE_PREPARING) {
-		call_error_cb(mc, MQTT_ERROR_STATE, "calling connect is only allowed once");
+		call_error_cb(mc, MQTT_ERROR_STATE, "can't use evmqtt_setup after connecting");
 		return;
 	}
 
