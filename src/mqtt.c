@@ -1024,6 +1024,10 @@ void evmqtt_disconnect(evmqtt_t *mc)
 			event_add(mc->timeout_evt, &interval);
 			return;
 
+		case MQTT_STATE_PREPARING:
+		case MQTT_STATE_DISCONNECTED:
+			return;
+
 		case MQTT_STATE_DISCONNECTING:
 		case MQTT_STATE_ERROR:
 			break;
