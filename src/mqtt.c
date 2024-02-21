@@ -908,13 +908,7 @@ evmqtt_t *evmqtt_create(struct event_base *base, evmqtt_error_handler_t err_hand
 	res->timeout_evt = event_new(res->base, -1, EV_TIMEOUT | EV_PERSIST, mqtt_timeout, res);
 	res->qos2_cleanup_evt = event_new(res->base, -1, EV_TIMEOUT | EV_PERSIST, qos2_cleanup, res);
 
-	res->data.will_flag = false;
-
-	res->data.username.buf = NULL;
-	res->data.password.buf = NULL;
-	res->data.id.buf = NULL;
-	res->data.will_message.buf = NULL;
-	res->data.will_topic.buf = NULL;
+	memset(&res->data, 0, sizeof(res->data));
 
 	res->data.proto_name.buf = strdup(MQTT_PROTOCOL_MAGIC);
 	res->data.proto_name.len = strlen(MQTT_PROTOCOL_MAGIC);
