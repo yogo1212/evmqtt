@@ -647,6 +647,7 @@ static void _evmqtt_disconnect(evmqtt_t *mc, bool graceful)
 		case MQTT_STATE_DISCONNECTED:
 			return;
 
+		case MQTT_STATE_CONNECTING:
 		case MQTT_STATE_DISCONNECTING:
 			break;
 
