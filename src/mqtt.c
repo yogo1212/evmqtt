@@ -341,6 +341,7 @@ static void mqtt_send_publish(evmqtt_t *mc, const char *topic, const void *data,
 
 	evbuffer_add(evb, hdrbuf, (uintptr_t) hdrbufpnt - (uintptr_t) hdrbuf);
 	evbuffer_add(evb, topicbuf, topicbufsize);
+	free(topicbuf);
 
 	// this increases even for qos=0
 	uint16_t mid;
