@@ -3,11 +3,6 @@
 
 #include <stdbool.h>
 
-size_t get_utf8_char_count(const void *buf, size_t bytecount);
-
-
-size_t get_utf8_byte_count(const void *buf, size_t charcount);
-
 enum CONVERSION_ERROR {
 	CE_OK = 0,
 	CE_ICONV_OPEN_ERRNO,
