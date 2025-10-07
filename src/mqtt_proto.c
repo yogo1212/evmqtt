@@ -394,10 +394,8 @@ bool mqtt_read_string(void **buf, size_t *remaining, char **out, size_t *outlen)
 		return false;
 	}
 
-	uint16_t stringlen = mqtt_read_uint16(buf);
+	size_t bc = mqtt_read_uint16(buf);
 	*remaining -= 2;
-
-	size_t bc = get_utf8_byte_count(*buf, stringlen);
 
 	if (bc > *remaining) {
 		*out = malloc(1024);
