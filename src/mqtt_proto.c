@@ -183,7 +183,9 @@ static void copy_to(void **buf, void *from, size_t len)
 
 bool mqtt_write_connect_data(mqtt_connect_data_t *data, char **out, size_t *outlen)
 {
-	bool res = true;
+	bool res = false;
+
+	size_t length = 0;
 
 	size_t proto_name_len = 0;
 	char *proto_name = NULL;
@@ -191,7 +193,6 @@ bool mqtt_write_connect_data(mqtt_connect_data_t *data, char **out, size_t *outl
 	if (!mqtt_write_string(data->proto_name.buf, data->proto_name.len, &proto_name, &proto_name_len)) {
 		*out = malloc(proto_name_len + 512);
 		*outlen = sprintf(*out, "couldn't write proto_name:\n\t%.*s", (int) proto_name_len, proto_name);
-		res = false;
 		goto cleanup_proto_name;
 	}
 
@@ -207,15 +208,21 @@ bool mqtt_write_connect_data(mqtt_connect_data_t *data, char **out, size_t *outl
 
 	uint16_t keep_alive = htons(data->keep_alive);
 
-	size_t cid_len;
-	char *cid;
+	length += proto_name_len
+	          + sizeof(proto_level)
+	          + sizeof(connect_flags)
+	          + sizeof(keep_alive);
+
+	size_t cid_len = 0;
+	char *cid = NULL;
 
 	if (!mqtt_write_string(data->id.buf, data->id.len, &cid, &cid_len)) {
 		*out = malloc(cid_len + 512);
 		*outlen = sprintf(*out, "couldn't write id:\n\t%.*s", (int) cid_len, cid);
-		res = false;
 		goto cleanup_id;
 	}
+
+	length += cid_len;
 
 	size_t will_topic_len = 0;
 	char *will_topic = NULL;
@@ -224,16 +231,17 @@ bool mqtt_write_connect_data(mqtt_connect_data_t *data, char **out, size_t *outl
 		if ((!data->will_topic.buf) || (data->will_topic.len == 0)) {
 			*out = malloc(512);
 			*outlen = sprintf(*out, "missing will_topic");
-			res = false;
 			goto cleanup_id;
 		}
 
 		if (!mqtt_write_string(data->will_topic.buf, data->will_topic.len, &will_topic, &will_topic_len)) {
 			*out = malloc(will_topic_len + 512);
 			*outlen = sprintf(*out, "couldn't write will_topic:\n\t%.*s", (int) will_topic_len, will_topic);
-			res = false;
 			goto cleanup_will_topic;
 		}
+
+		length += will_topic_len
+		          + 2 + data->will_message.len;
 	}
 
 	size_t username_len = 0;
@@ -246,19 +254,12 @@ bool mqtt_write_connect_data(mqtt_connect_data_t *data, char **out, size_t *outl
 			goto cleanup_username;
 		}
 
+		length += username_len
+		          + 2 + data->password.len;
 	}
 
-assemble:
-	*outlen = proto_name_len
-	          + sizeof(proto_level)
-	          + sizeof(connect_flags)
-	          + sizeof(keep_alive)
-	          + cid_len
-	          + will_topic_len
-	          + 2 + data->will_message.len
-	          + username_len
-	          + 2 + data->password.len
-	*out = malloc(*outlen);
+	*outlen = length;
+	*out = malloc(length);
 
 	void *out_pnt = *out;
 	copy_to(&out_pnt, proto_name, proto_name_len);
@@ -284,6 +285,7 @@ assemble:
 		copy_to(&out_pnt, data->password.buf, data->password.len);
 	}
 
+	res = true;
 
 cleanup_username:
 	free(username);
