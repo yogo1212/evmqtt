@@ -252,8 +252,8 @@ static void mqtt_send_disconnect(evmqtt_t *mc)
 
 static void mqtt_send_subscribe(evmqtt_t *mc, const char *topic, uint8_t qos)
 {
-	char *buf;
-	size_t bufsize;
+	char *buf = NULL;
+	size_t bufsize = 0;
 
 	if (!mqtt_write_string(topic, strlen(topic), &buf, &bufsize)) {
 		call_error_cb(mc, MQTT_ERROR_PROTOCOL, buf);
@@ -288,8 +288,8 @@ static void mqtt_send_subscribe(evmqtt_t *mc, const char *topic, uint8_t qos)
 
 static void mqtt_send_unsubscribe(evmqtt_t *mc, const char *topic)
 {
-	char *buf;
-	size_t bufsize;
+	char *buf = NULL;
+	size_t bufsize = 0;
 
 	if (!mqtt_write_string(topic, strlen(topic), &buf, &bufsize)) {
 		call_error_cb(mc, MQTT_ERROR_PROTOCOL, buf);
@@ -323,8 +323,8 @@ static void mqtt_send_unsubscribe(evmqtt_t *mc, const char *topic)
 
 static void mqtt_send_publish(evmqtt_t *mc, const char *topic, const void *data, size_t datalen, uint8_t qos, bool retain)
 {
-	char *topicbuf;
-	size_t topicbufsize;
+	char *topicbuf = NULL;
+	size_t topicbufsize = 0;
 
 	if (!mqtt_write_string(topic, strlen(topic), &topicbuf, &topicbufsize)) {
 		call_error_cb(mc, MQTT_ERROR_PROTOCOL, topicbuf);

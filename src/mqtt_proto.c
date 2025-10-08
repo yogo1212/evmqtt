@@ -185,8 +185,8 @@ bool mqtt_write_connect_data(mqtt_connect_data_t *data, char **out, size_t *outl
 {
 	bool res = true;
 
-	size_t proto_name_len;
-	char *proto_name;
+	size_t proto_name_len = 0;
+	char *proto_name = NULL;
 
 	if (!mqtt_write_string(data->proto_name.buf, data->proto_name.len, &proto_name, &proto_name_len)) {
 		*out = malloc(proto_name_len + 512);
@@ -359,35 +359,28 @@ bool mqtt_write_string(const char *string, size_t stringlen, char **out, size_t 
 		return false;
 	}
 
-	char *data;
-	size_t data_len;
-	enum CONVERSION_ERROR err = local_to_utf8(string, stringlen, &data, &data_len);
+	// the maximum string byte length allowed by MQTT + the two byte length
+	*out = malloc(2 + UINT16_MAX);
 
+	char *enc_str = (*out) + 2;
+	size_t enc_str_len = UINT16_MAX;
+
+	enum CONVERSION_ERROR err = local_to_utf8(string, stringlen, &enc_str, &enc_str_len);
 	if (err != CE_OK) {
 		*out = malloc(1024);
 		*outlen = sprintf(*out, "to utf8 conv-err: %d", (int) err);
 		return false;
 	}
 
-	if (data_len > UINT16_MAX) {
-		*out = malloc(1024);
-		*outlen = sprintf(*out, "to utf8 exceeding data size limit (%zu/%d)", data_len, UINT16_MAX);
-		return false;
-	}
+	void *outptr = *out;
+	mqtt_write_uint16(&outptr, (uint16_t) enc_str_len);
+	*outlen = 2 + enc_str_len;
 
-	*outlen = data_len + 2;
-	*out = malloc(*outlen);
-	void *bufpnt = *out;
-	mqtt_write_uint16(&bufpnt, data_len);
-
-	memcpy(bufpnt, data, data_len);
-	free(data);
 	return true;
 }
 
 bool mqtt_read_string(void **buf, size_t *remaining, char **out, size_t *outlen)
 {
-	//utf8 char count!!
 	if (*remaining < 2) {
 		*out = malloc(1024);
 		*outlen = sprintf(*out, "illegal utf8 with not even two-byte prefix");
@@ -406,7 +399,7 @@ bool mqtt_read_string(void **buf, size_t *remaining, char **out, size_t *outlen)
 	*remaining -= bc;
 
 	enum CONVERSION_ERROR err;
-	char *localstr;
+	char *localstr = NULL;
 
 	if ((err = utf8_to_local((char *) *buf,  bc, &localstr, outlen)) != CE_OK) {
 		*out = malloc(1024);

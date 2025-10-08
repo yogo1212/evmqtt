@@ -13,7 +13,12 @@
 static enum CONVERSION_ERROR _encode_magic(const char *from, const char *to, const char *buf, size_t bufbc, char **out, size_t *outbc)
 {
 	if (strcmp(to, from) == 0) {
-		*out = malloc(bufbc + 1);
+		size_t want = bufbc + 1;
+		if (*out == NULL) {
+			*out = malloc(want);
+		} else if (*outbc < want) {
+			return CE_BUFFER_SIZE;
+		}
 		(*out)[bufbc] = '\0';
 		*outbc = bufbc;
 		return CE_OK;
@@ -31,14 +36,18 @@ static enum CONVERSION_ERROR _encode_magic(const char *from, const char *to, con
 	}
 
 	enum CONVERSION_ERROR res = CE_OK;
-	// i just hope no encoding exceeds this..
-	size_t outsize = bufbc * 4;
-	*out = malloc(outsize);
-	char *outcpy = *out;
+
+	size_t rem_out = *outbc;
+	if (*out == NULL) {
+		// i just hope no encoding exceeds this..
+		rem_out = bufbc * 4 + 1;
+		*out = malloc(rem_out);
+	}
 
 	char *bufcpy = (char *) buf;
+	char *outcpy = *out;
 
-	if (iconv(ic, &bufcpy, &bufbc, &outcpy, &outsize) == (size_t) - 1) {
+	if (iconv(ic, &bufcpy, &bufbc, &outcpy, &rem_out) == (size_t) - 1) {
 		switch (errno) {
 			case EILSEQ:
 				res = CE_INVALID_SEQ;
@@ -59,10 +68,15 @@ static enum CONVERSION_ERROR _encode_magic(const char *from, const char *to, con
 		goto end;
 	}
 
-	*outbc = (uintptr_t) outcpy - (uintptr_t) * out;
+	*outbc = (uintptr_t) outcpy - (uintptr_t) *out;
+
 	// because we're nice...
 	// we'll add a terminating zero
-	*out = realloc(*out, *outbc + 1);
+	if (rem_out < 1) {
+		res = CE_BUFFER_SIZE;
+		goto end;
+	}
+
 	(*out)[*outbc] = '\0';;
 
 end:
