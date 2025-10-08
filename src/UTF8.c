@@ -19,6 +19,8 @@ static enum CONVERSION_ERROR _encode_magic(const char *from, const char *to, con
 		} else if (*outbc < want) {
 			return CE_BUFFER_SIZE;
 		}
+
+		memcpy(*out, buf, bufbc);
 		(*out)[bufbc] = '\0';
 		*outbc = bufbc;
 		return CE_OK;
