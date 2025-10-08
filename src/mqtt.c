@@ -476,14 +476,22 @@ static void handle_pingresp(evmqtt_t *mc, mqtt_proto_header_t *hdr, void *buf, s
 
 static void handle_publish(evmqtt_t *mc, mqtt_proto_header_t *hdr, void *buf, size_t len)
 {
-	char *topic;
-	size_t topic_len;
+	size_t topic_buf_size = UINT16_MAX * 4 + 1;
+	char *topic = alloca(topic_buf_size);
+	size_t topic_len = topic_buf_size;
 
 	if (!mqtt_read_string(&buf, &len, &topic, &topic_len)) {
 		call_error_cb(mc, MQTT_ERROR_PROTOCOL, topic);
-		free(topic);
 		return;
 	}
+
+	// add zero-termination to the topic
+	if (topic_len >= topic_buf_size) {
+		call_error_cb(mc, MQTT_ERROR_PROTOCOL, "topic buffer too small");
+		return;
+	}
+
+	topic[topic_len] = '\0';
 
 	uint16_t mid;
 
@@ -520,8 +528,6 @@ call:
 		mc->msg_cb(mc, topic, buf, len, hdr->retain, hdr->qos, mc->msg_cb_arg);
 
 out:
-	free(topic);
-
 	call_debug_cb(mc, "received publish");
 }
 

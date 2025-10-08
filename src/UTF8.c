@@ -33,15 +33,13 @@ bool probe_local_encoding(void)
 static enum CONVERSION_ERROR _encode_magic(const char *from, const char *to, const char *buf, size_t bufbc, char **out, size_t *outbc)
 {
 	if (local_encoding[0] == '\0') {
-		size_t want = bufbc + 1;
 		if (*out == NULL) {
-			*out = malloc(want);
-		} else if (*outbc < want) {
+			*out = malloc(bufbc);
+		} else if (*outbc < bufbc) {
 			return CE_BUFFER_SIZE;
 		}
 
 		memcpy(*out, buf, bufbc);
-		(*out)[bufbc] = '\0';
 		*outbc = bufbc;
 		return CE_OK;
 	}
@@ -91,15 +89,6 @@ static enum CONVERSION_ERROR _encode_magic(const char *from, const char *to, con
 	}
 
 	*outbc = (uintptr_t) outcpy - (uintptr_t) *out;
-
-	// because we're nice...
-	// we'll add a terminating zero
-	if (rem_out < 1) {
-		res = CE_BUFFER_SIZE;
-		goto end;
-	}
-
-	(*out)[*outbc] = '\0';;
 
 end:
 	iconv_close(ic);

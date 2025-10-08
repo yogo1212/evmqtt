@@ -360,8 +360,7 @@ bool mqtt_write_string(const char *string, size_t stringlen, char **out, size_t 
 bool mqtt_read_string(void **buf, size_t *remaining, char **out, size_t *outlen)
 {
 	if (*remaining < 2) {
-		*out = malloc(1024);
-		*outlen = sprintf(*out, "illegal utf8 with not even two-byte prefix");
+		*outlen = snprintf(*out, *outlen, "illegal utf8 with not even two-byte prefix");
 		return false;
 	}
 
@@ -369,24 +368,24 @@ bool mqtt_read_string(void **buf, size_t *remaining, char **out, size_t *outlen)
 	*remaining -= 2;
 
 	if (bc > *remaining) {
-		*out = malloc(1024);
-		*outlen = sprintf(*out, "illegal utf8-bc: %zu (remaining: %zu)", bc, *remaining);
+		*outlen = snprintf(*out, *outlen, "illegal utf8-bc: %zu (remaining: %zu)", bc, *remaining);
 		return false;
 	}
 
 	*remaining -= bc;
 
 	enum CONVERSION_ERROR err;
-	char *localstr = NULL;
+	char *localstr = *out;
+	size_t localstr_len = *outlen;
 
-	if ((err = utf8_to_local((char *) *buf,  bc, &localstr, outlen)) != CE_OK) {
-		*out = malloc(1024);
-		*outlen = sprintf(*out, "to local conv-err: %d", (int) err);
+	if ((err = utf8_to_local((char *) *buf,  bc, &localstr, &localstr_len)) != CE_OK) {
+		*outlen = snprintf(*out, *outlen, "to local conv-err: %d", (int) err);
 		return false;
 	}
 
 	*buf = (uint8_t *)(*buf) + bc;
 
 	*out = localstr;
+	*outlen = localstr_len;
 	return true;
 }
