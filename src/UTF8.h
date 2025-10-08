@@ -17,4 +17,6 @@ enum CONVERSION_ERROR local_to_utf8(const char *buf, size_t bufbc, char **out, s
 
 enum CONVERSION_ERROR utf8_to_local(const char *buf, size_t bufbc, char **out, size_t *outbc);
 
+bool probe_local_encoding(void);
+
 #endif

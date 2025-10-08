@@ -10,6 +10,7 @@
 #include "mqtt_proto.h"
 
 #include "evmqtt/mqtt.h"
+#include "UTF8.h"
 
 enum MQTT_STATE {
 	//MQTT_STATE_INVALID = 0,
@@ -906,6 +907,12 @@ struct event_base *evmqtt_get_base(evmqtt_t *mc)
 
 evmqtt_t *evmqtt_create(struct event_base *base, evmqtt_error_handler_t err_handler, void *userdata)
 {
+	if (!probe_local_encoding()) {
+		if (err_handler)
+			err_handler(NULL, MQTT_ERROR_HARD, "couldn't determine local codeset");
+		return NULL;
+	}
+
 	evmqtt_t *res = malloc(sizeof(evmqtt_t));
 	res->state = MQTT_STATE_PREPARING;
 	res->base = base;

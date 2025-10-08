@@ -10,9 +10,29 @@
 
 #define UTF8_ENC_STRING "UTF-8"
 
+// assume the locale doesn't change over the lifetime of the evmqtt_t object.
+// if the first byte is '\0', no conversion is done.
+static char local_encoding[32] = { '\0', };
+
+bool probe_local_encoding(void)
+{
+	// TODO this is not thread-safe
+	char *encoding = nl_langinfo(CODESET);
+	size_t l = strlen(encoding);
+	if (l >= sizeof(local_encoding))
+		return false;
+
+	if (strcmp(encoding, UTF8_ENC_STRING) == 0)
+		local_encoding[0] = '\0';
+	else
+		memcpy(local_encoding, encoding, l + 1);
+
+	return true;
+}
+
 static enum CONVERSION_ERROR _encode_magic(const char *from, const char *to, const char *buf, size_t bufbc, char **out, size_t *outbc)
 {
-	if (strcmp(to, from) == 0) {
+	if (local_encoding[0] == '\0') {
 		size_t want = bufbc + 1;
 		if (*out == NULL) {
 			*out = malloc(want);
@@ -93,14 +113,10 @@ end:
 
 enum CONVERSION_ERROR local_to_utf8(const char *buf, size_t bufbc, char **out, size_t *outbc)
 {
-	char *encoding = nl_langinfo(CODESET);
-
-	return _encode_magic(encoding, UTF8_ENC_STRING, buf, bufbc, out, outbc);
+	return _encode_magic(local_encoding, UTF8_ENC_STRING, buf, bufbc, out, outbc);
 }
 
 enum CONVERSION_ERROR utf8_to_local(const char *buf, size_t bufbc, char **out, size_t *outbc)
 {
-	char *encoding = nl_langinfo(CODESET);
-
-	return _encode_magic(UTF8_ENC_STRING, encoding, buf, bufbc, out, outbc);
+	return _encode_magic(UTF8_ENC_STRING, local_encoding, buf, bufbc, out, outbc);
 }
