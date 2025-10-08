@@ -114,7 +114,7 @@ static void mqtt_subscription_add_handler(mqtt_subscription_t *sub, evmqtt_messa
 	}
 
 	sub->handlers_size += 1;
-	sub->handlers = realloc(sub->handlers, sub->handlers_size);
+	sub->handlers = realloc(sub->handlers, sub->handlers_size * sizeof(sub->handlers[0]));
 
 	sub->handlers[sub->handlers_size - 1].cb = cb;
 	sub->handlers[sub->handlers_size - 1].ctx = ctx;
@@ -141,7 +141,7 @@ static void mqtt_subscription_remove_handler(mqtt_subscription_t *sub, evmqtt_me
 	sub->handlers[pos].cb = sub->handlers[sub->handlers_size].cb;
 	sub->handlers[pos].ctx = sub->handlers[sub->handlers_size].ctx;
 
-	sub->handlers = realloc(sub->handlers, sub->handlers_size);
+	sub->handlers = realloc(sub->handlers, sub->handlers_size * sizeof(sub->handlers[0]));
 }
 
 static mqtt_subscription_t *mqtt_subscription_new(mqtt_subscription_engine_t *se, const char *topic, uint8_t qos)
