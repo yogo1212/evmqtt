@@ -219,8 +219,6 @@ bool mqtt_write_connect_data(mqtt_connect_data_t *data, char **out, size_t *outl
 
 	size_t will_topic_len = 0;
 	char *will_topic = NULL;
-	size_t will_message_len = 0;
-	char *will_message = NULL;
 
 	if (data->will_flag) {
 		if ((!data->will_topic.buf) || (data->will_topic.len == 0)) {
@@ -236,47 +234,18 @@ bool mqtt_write_connect_data(mqtt_connect_data_t *data, char **out, size_t *outl
 			res = false;
 			goto cleanup_will_topic;
 		}
-
-		if ((!data->will_message.buf) || (data->will_message.len == 0)) {
-			*out = malloc(512);
-			*outlen = sprintf(*out, "missing will_message");
-			res = false;
-			goto cleanup_will_topic;
-		}
-
-		if (!mqtt_write_string(data->will_message.buf, data->will_message.len, &will_message, &will_message_len)) {
-			*out = malloc(will_message_len + 512);
-			*outlen = sprintf(*out, "couldn't write will_message:\n\t%.*s", (int) will_message_len, will_message);
-			res = false;
-			goto cleanup_will_message;
-		}
 	}
 
 	size_t username_len = 0;
 	char *username = NULL;
-	size_t password_len = 0;
-	char *password = NULL;
 
-	if ((!data->username.buf) || (data->username.len == 0)) {
-		goto assemble;
-	}
+	if (data->username.buf) {
+		if (!mqtt_write_string(data->username.buf, data->username.len, &username, &username_len)) {
+			*out = malloc(username_len + 512);
+			*outlen = sprintf(*out, "couldn't write username:\n\t%.*s", (int) username_len, username);
+			goto cleanup_username;
+		}
 
-	if (!mqtt_write_string(data->username.buf, data->username.len, &username, &username_len)) {
-		*out = malloc(username_len + 512);
-		*outlen = sprintf(*out, "couldn't write username:\n\t%.*s", (int) username_len, username);
-		res = false;
-		goto cleanup_username;
-	}
-
-	if ((!data->password.buf) || (data->password.len == 0)) {
-		goto assemble;
-	}
-
-	if (!mqtt_write_string(data->password.buf, data->password.len, &password, &password_len)) {
-		*out = malloc(password_len + 512);
-		*outlen = sprintf(*out, "couldn't write password:\n\t%.*s", (int) password_len, password);
-		res = false;
-		goto cleanup_password;
 	}
 
 assemble:
@@ -286,9 +255,9 @@ assemble:
 	          + sizeof(keep_alive)
 	          + cid_len
 	          + will_topic_len
-	          + will_message_len
+	          + 2 + data->will_message.len
 	          + username_len
-	          + password_len;
+	          + 2 + data->password.len
 	*out = malloc(*outlen);
 
 	void *out_pnt = *out;
@@ -297,20 +266,27 @@ assemble:
 	copy_to(&out_pnt, &connect_flags, sizeof(connect_flags));
 	copy_to(&out_pnt, &keep_alive, sizeof(keep_alive));
 	copy_to(&out_pnt, cid, cid_len);
-	copy_to(&out_pnt, will_topic, will_topic_len);
-	copy_to(&out_pnt, will_message, will_message_len);
-	copy_to(&out_pnt, username, username_len);
-	copy_to(&out_pnt, password, password_len);
 
+	if (data->will_flag) {
+		copy_to(&out_pnt, will_topic, will_topic_len);
 
-cleanup_password:
-	free(password);
+		mqtt_write_uint16(&out_pnt, (uint16_t) data->will_message.len);
+		if (data->will_message.len > 0) {
+			copy_to(&out_pnt, data->will_message.buf, data->will_message.len);
+		}
+	}
+
+	if (data->username.buf)
+		copy_to(&out_pnt, username, username_len);
+
+	if (data->password.buf) {
+		mqtt_write_uint16(&out_pnt, (uint16_t) data->password.len);
+		copy_to(&out_pnt, data->password.buf, data->password.len);
+	}
+
 
 cleanup_username:
 	free(username);
-
-cleanup_will_message:
-	free(will_message);
 
 cleanup_will_topic:
 	free(will_topic);

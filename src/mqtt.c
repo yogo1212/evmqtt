@@ -865,8 +865,12 @@ void evmqtt_will_set(evmqtt_t *mc, const char *topic, const void *payload, size_
 		free(mc->data.will_message.buf);
 	}
 
-	mc->data.will_message.buf = malloc(payloadlen);
-	memcpy(mc->data.will_message.buf, payload, payloadlen);
+	if (payloadlen > 0) {
+		mc->data.will_message.buf = malloc(payloadlen);
+		memcpy(mc->data.will_message.buf, payload, payloadlen);
+	} else {
+		mc->data.will_message.buf = NULL;
+	}
 	mc->data.will_message.len = payloadlen;
 
 	mc->data.will_retain = retain;
@@ -999,8 +1003,11 @@ void evmqtt_setup(evmqtt_t *mc, char *id, uint16_t keep_alive, char *username, c
 			free(mc->data.password.buf);
 		}
 
-		mc->data.password.buf = strdup(password);
 		mc->data.password.len = strlen(password);
+		if (mc->data.password.len > 0)
+			mc->data.password.buf = strdup(password);
+		else
+			mc->data.password.buf = NULL;
 	}
 }
 
