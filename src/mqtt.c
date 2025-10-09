@@ -253,18 +253,13 @@ static void mqtt_send_disconnect(evmqtt_t *mc)
 
 static void mqtt_send_subscribe(evmqtt_t *mc, const char *topic, uint8_t qos)
 {
-	char *buf = NULL;
-	size_t bufsize = 0;
+	size_t bufsize = 2 + UINT16_MAX;
+	char *buf = alloca(bufsize);
 
-	if (!mqtt_write_string(topic, strlen(topic), &buf, &bufsize)) {
+	if (!mqtt_write_string(topic, strlen(topic), buf, &bufsize)) {
 		call_error_cb(mc, MQTT_ERROR_PROTOCOL, buf);
-		free(buf);
 		return;
 	}
-
-	char *bufcpy = alloca(bufsize);
-	memcpy(bufcpy, buf, bufsize);
-	free(buf);
 
 	uint8_t hdrbuf[MQTT_MAX_FIXED_HEADER_SIZE];
 	void *hdrbufpnt = hdrbuf;
@@ -277,7 +272,7 @@ static void mqtt_send_subscribe(evmqtt_t *mc, const char *topic, uint8_t qos)
 	evbuffer_add(evb, hdrbuf, (uintptr_t) hdrbufpnt - (uintptr_t) hdrbuf);
 	uint16_t mid = next_mid(mc);
 	evbuffer_add(evb, &mid, sizeof(mid));
-	evbuffer_add(evb, bufcpy, bufsize);
+	evbuffer_add(evb, buf, bufsize);
 	evbuffer_add(evb, &qos, sizeof(qos));
 
 	add_retransmission(mc, evb, ntohs(mid));
@@ -289,18 +284,13 @@ static void mqtt_send_subscribe(evmqtt_t *mc, const char *topic, uint8_t qos)
 
 static void mqtt_send_unsubscribe(evmqtt_t *mc, const char *topic)
 {
-	char *buf = NULL;
-	size_t bufsize = 0;
+	size_t bufsize = 2 + UINT16_MAX;
+	char *buf = alloca(bufsize);
 
-	if (!mqtt_write_string(topic, strlen(topic), &buf, &bufsize)) {
+	if (!mqtt_write_string(topic, strlen(topic), buf, &bufsize)) {
 		call_error_cb(mc, MQTT_ERROR_PROTOCOL, buf);
-		free(buf);
 		return;
 	}
-
-	char *bufcpy = alloca(bufsize);
-	memcpy(bufcpy, buf, bufsize);
-	free(buf);
 
 	uint8_t hdrbuf[MQTT_MAX_FIXED_HEADER_SIZE];
 	void *hdrbufpnt = hdrbuf;
@@ -313,7 +303,7 @@ static void mqtt_send_unsubscribe(evmqtt_t *mc, const char *topic)
 	evbuffer_add(evb, hdrbuf, (uintptr_t) hdrbufpnt - (uintptr_t) hdrbuf);
 	uint16_t mid = next_mid(mc);
 	evbuffer_add(evb, &mid, sizeof(mid));
-	evbuffer_add(evb, bufcpy, bufsize);
+	evbuffer_add(evb, buf, bufsize);
 
 	add_retransmission(mc, evb, ntohs(mid));
 
@@ -324,12 +314,11 @@ static void mqtt_send_unsubscribe(evmqtt_t *mc, const char *topic)
 
 static void mqtt_send_publish(evmqtt_t *mc, const char *topic, const void *data, size_t datalen, uint8_t qos, bool retain)
 {
-	char *topicbuf = NULL;
-	size_t topicbufsize = 0;
+	size_t topicbufsize = 2 + UINT16_MAX;
+	char *topicbuf = alloca(topicbufsize);
 
-	if (!mqtt_write_string(topic, strlen(topic), &topicbuf, &topicbufsize)) {
+	if (!mqtt_write_string(topic, strlen(topic), topicbuf, &topicbufsize)) {
 		call_error_cb(mc, MQTT_ERROR_PROTOCOL, topicbuf);
-		free(topicbuf);
 		return;
 	}
 
@@ -342,7 +331,6 @@ static void mqtt_send_publish(evmqtt_t *mc, const char *topic, const void *data,
 
 	evbuffer_add(evb, hdrbuf, (uintptr_t) hdrbufpnt - (uintptr_t) hdrbuf);
 	evbuffer_add(evb, topicbuf, topicbufsize);
-	free(topicbuf);
 
 	// this increases even for qos=0
 	uint16_t mid;
@@ -480,7 +468,7 @@ static void handle_publish(evmqtt_t *mc, mqtt_proto_header_t *hdr, void *buf, si
 	char *topic = alloca(topic_buf_size);
 	size_t topic_len = topic_buf_size;
 
-	if (!mqtt_read_string(&buf, &len, &topic, &topic_len)) {
+	if (!mqtt_read_string(&buf, &len, topic, &topic_len)) {
 		call_error_cb(mc, MQTT_ERROR_PROTOCOL, topic);
 		return;
 	}

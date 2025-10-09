@@ -183,17 +183,15 @@ static void copy_to(void **buf, void *from, size_t len)
 
 bool mqtt_write_connect_data(mqtt_connect_data_t *data, char **out, size_t *outlen)
 {
-	bool res = false;
-
 	size_t length = 0;
 
-	size_t proto_name_len = 0;
-	char *proto_name = NULL;
+	size_t proto_name_len = 2 + UINT16_MAX;
+	char *proto_name = alloca(proto_name_len);
 
-	if (!mqtt_write_string(data->proto_name.buf, data->proto_name.len, &proto_name, &proto_name_len)) {
+	if (!mqtt_write_string(data->proto_name.buf, data->proto_name.len, proto_name, &proto_name_len)) {
 		*out = malloc(proto_name_len + 512);
 		*outlen = sprintf(*out, "couldn't write proto_name:\n\t%.*s", (int) proto_name_len, proto_name);
-		goto cleanup_proto_name;
+		return false;
 	}
 
 	uint8_t proto_level = data->proto_level;
@@ -213,45 +211,46 @@ bool mqtt_write_connect_data(mqtt_connect_data_t *data, char **out, size_t *outl
 	          + sizeof(connect_flags)
 	          + sizeof(keep_alive);
 
-	size_t cid_len = 0;
-	char *cid = NULL;
+	size_t cid_len = 2 + UINT16_MAX;
+	char *cid = alloca(cid_len);
 
-	if (!mqtt_write_string(data->id.buf, data->id.len, &cid, &cid_len)) {
+	if (!mqtt_write_string(data->id.buf, data->id.len, cid, &cid_len)) {
 		*out = malloc(cid_len + 512);
 		*outlen = sprintf(*out, "couldn't write id:\n\t%.*s", (int) cid_len, cid);
-		goto cleanup_id;
+		return false;
 	}
+
 
 	length += cid_len;
 
-	size_t will_topic_len = 0;
-	char *will_topic = NULL;
+	size_t will_topic_len = 2 + UINT16_MAX;
+	char *will_topic = alloca(will_topic_len);
 
 	if (data->will_flag) {
 		if ((!data->will_topic.buf) || (data->will_topic.len == 0)) {
 			*out = malloc(512);
 			*outlen = sprintf(*out, "missing will_topic");
-			goto cleanup_id;
+			return false;
 		}
 
-		if (!mqtt_write_string(data->will_topic.buf, data->will_topic.len, &will_topic, &will_topic_len)) {
+		if (!mqtt_write_string(data->will_topic.buf, data->will_topic.len, will_topic, &will_topic_len)) {
 			*out = malloc(will_topic_len + 512);
 			*outlen = sprintf(*out, "couldn't write will_topic:\n\t%.*s", (int) will_topic_len, will_topic);
-			goto cleanup_will_topic;
+			return false;
 		}
 
 		length += will_topic_len
 		          + 2 + data->will_message.len;
 	}
 
-	size_t username_len = 0;
-	char *username = NULL;
+	size_t username_len = 2 + UINT16_MAX;
+	char *username = alloca(username_len);
 
 	if (data->username.buf) {
-		if (!mqtt_write_string(data->username.buf, data->username.len, &username, &username_len)) {
+		if (!mqtt_write_string(data->username.buf, data->username.len, username, &username_len)) {
 			*out = malloc(username_len + 512);
 			*outlen = sprintf(*out, "couldn't write username:\n\t%.*s", (int) username_len, username);
-			goto cleanup_username;
+			return false;
 		}
 
 		length += username_len
@@ -285,21 +284,7 @@ bool mqtt_write_connect_data(mqtt_connect_data_t *data, char **out, size_t *outl
 		copy_to(&out_pnt, data->password.buf, data->password.len);
 	}
 
-	res = true;
-
-cleanup_username:
-	free(username);
-
-cleanup_will_topic:
-	free(will_topic);
-
-cleanup_id:
-	free(cid);
-
-cleanup_proto_name:
-	free(proto_name);
-
-	return res;
+	return true;
 }
 
 void mqtt_read_connack_data(void **buf, mqtt_connack_data_t *data)
@@ -329,38 +314,33 @@ void mqtt_write_uint16(void **buf, uint16_t val)
 	*buf = pnt;
 }
 
-bool mqtt_write_string(const char *string, size_t stringlen, char **out, size_t *outlen)
+bool mqtt_write_string(const char *string, size_t stringlen, char *into, size_t *into_len)
 {
 	if (!string) {
-		*out = malloc(1024);
-		*outlen = sprintf(*out, "conv-err: input NULL");
+		*into_len = snprintf(into, *into_len, "conv-err: input NULL");
 		return false;
 	}
 
-	// the maximum string byte length allowed by MQTT + the two byte length
-	*out = malloc(2 + UINT16_MAX);
-
-	char *enc_str = (*out) + 2;
+	char *enc_str = into + 2;
 	size_t enc_str_len = UINT16_MAX;
 
 	enum CONVERSION_ERROR err = local_to_utf8(string, stringlen, &enc_str, &enc_str_len);
 	if (err != CE_OK) {
-		*out = malloc(1024);
-		*outlen = sprintf(*out, "to utf8 conv-err: %d", (int) err);
+		*into_len = snprintf(into, *into_len, "to utf8 conv-err: %d", (int) err);
 		return false;
 	}
 
-	void *outptr = *out;
+	void *outptr = into;
 	mqtt_write_uint16(&outptr, (uint16_t) enc_str_len);
-	*outlen = 2 + enc_str_len;
+	*into_len = 2 + enc_str_len;
 
 	return true;
 }
 
-bool mqtt_read_string(void **buf, size_t *remaining, char **out, size_t *outlen)
+bool mqtt_read_string(void **buf, size_t *remaining, char *into, size_t *into_len)
 {
 	if (*remaining < 2) {
-		*outlen = snprintf(*out, *outlen, "illegal utf8 with not even two-byte prefix");
+		*into_len = snprintf(into, *into_len, "illegal utf8 with not even two-byte prefix");
 		return false;
 	}
 
@@ -368,24 +348,23 @@ bool mqtt_read_string(void **buf, size_t *remaining, char **out, size_t *outlen)
 	*remaining -= 2;
 
 	if (bc > *remaining) {
-		*outlen = snprintf(*out, *outlen, "illegal utf8-bc: %zu (remaining: %zu)", bc, *remaining);
+		*into_len = snprintf(into, *into_len, "illegal utf8-bc: %zu (remaining: %zu)", bc, *remaining);
 		return false;
 	}
 
 	*remaining -= bc;
 
 	enum CONVERSION_ERROR err;
-	char *localstr = *out;
-	size_t localstr_len = *outlen;
+	char *localstr = into;
+	size_t localstr_len = *into_len;
 
-	if ((err = utf8_to_local((char *) *buf,  bc, &localstr, &localstr_len)) != CE_OK) {
-		*outlen = snprintf(*out, *outlen, "to local conv-err: %d", (int) err);
+	if ((err = utf8_to_local((char *) *buf, bc, &localstr, &localstr_len)) != CE_OK) {
+		*into_len = snprintf(into, *into_len, "to local conv-err: %d", (int) err);
 		return false;
 	}
 
 	*buf = (uint8_t *)(*buf) + bc;
 
-	*out = localstr;
-	*outlen = localstr_len;
+	*into_len = localstr_len;
 	return true;
 }
