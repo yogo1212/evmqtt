@@ -18,12 +18,12 @@ else
 CFLAGS += -O2
 endif
 
-LDFLAGS += -levent -levent_openssl -lssl -lcrypto -lpcre2-8
+LDFLAGS += -levent -lpcre2-8
 
 LIBCFLAGS := $(CFLAGS) -fPIC
 LIBLDFLAGS := $(LDFLAGS) -shared
 
-EXLDFLAGS := $(LDFLAGS) -levtssl -L$(BINDIR)/ -l$(NAME)
+EXLDFLAGS := $(LDFLAGS) -levent_openssl -lssl -lcrypto -levtssl -L$(BINDIR)/ -l$(NAME)
 
 SOURCES = $(wildcard $(SRCDIR)/*.c)
 OBJECTS = $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(SOURCES))
