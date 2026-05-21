@@ -199,7 +199,7 @@ bool mqtt_write_connect_data(mqtt_connect_data_t *data, char **out, size_t *outl
 	uint8_t connect_flags = 0;
 	connect_flags |= ((data->clean_session ? 1 : 0) << 1);
 	connect_flags |= ((data->will_flag ? 1 : 0) << 2);
-	connect_flags |= ((data->will_qos & 2) << 3);
+	connect_flags |= ((data->will_qos & 0x3) << 3);
 	connect_flags |= ((data->will_retain ? 1 : 0) << 5);
 	connect_flags |= ((data->password.buf ? 1 : 0) << 6);
 	connect_flags |= ((data->username.buf ? 1 : 0) << 7);
