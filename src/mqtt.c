@@ -583,6 +583,7 @@ static void handle_suback(evmqtt_t *mc, mqtt_proto_header_t *hdr, void *buf, siz
 
 	// TODO buf contains byte for each subscription
 	// either QoS (0,1,2) or failure (0x80)
+	(void) len;
 
 	call_debug_cb(mc, "received suback");
 }
