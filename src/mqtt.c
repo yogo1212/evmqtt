@@ -647,8 +647,9 @@ static void _evmqtt_disconnect(evmqtt_t *mc, bool graceful)
 		case MQTT_STATE_DISCONNECTING:
 			break;
 
-		default:
-			sprintf(buf, "can't disconnect from this state: %d", mc->state);
+		default: ;
+			snprintf(buf, sizeof(buf), "can't disconnect from this state: %d", mc->state);
+			buf[sizeof(buf) - 1] = '\0';
 			call_error_cb(mc, MQTT_ERROR_STATE, buf);
 	}
 
@@ -714,7 +715,8 @@ static void event_callback(struct bufferevent *bev, short what, void *ctx)
 
 	if (what & BEV_EVENT_ERROR) {
 		char buf[1024];
-		sprintf(buf, "bev-error(%d): %s", what, strerror(errno));
+		snprintf(buf, sizeof(buf), "bev-error(%d): %s", what, strerror(errno));
+		buf[sizeof(buf) - 1] = '\0';
 
 		call_error_cb(mc, MQTT_ERROR_NETWORK, buf);
 	}
