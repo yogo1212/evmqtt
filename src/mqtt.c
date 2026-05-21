@@ -842,7 +842,7 @@ static void read_callback(struct bufferevent *bev, void *ctx)
 			break;
 
 		default:
-			call_error_cb(mc, MQTT_ERROR_PROTOCOL, "unkonwn message type");
+			call_error_cb(mc, MQTT_ERROR_PROTOCOL, "unknown message type");
 	}
 
 	// we got a whole message - the next thing we want to read is a header
