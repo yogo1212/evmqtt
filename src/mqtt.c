@@ -481,34 +481,34 @@ static void handle_publish(evmqtt_t *mc, mqtt_proto_header_t *hdr, void *buf, si
 
 	topic[topic_len] = '\0';
 
-	uint16_t mid;
+	if (hdr->qos == 0)
+		goto call;
 
-	if (hdr->qos > 0) {
-		mid = mqtt_read_uint16(&buf);
-		len -= 2;
+	uint16_t mid = mqtt_read_uint16(&buf);
+	len -= 2;
 
-		if (hdr->qos == 1) {
-			mqtt_send_puback(mc, mid);
-			goto call;
+	if (hdr->qos == 1) {
+		mqtt_send_puback(mc, mid);
+		goto call;
+	}
+
+	if (hdr->qos == 2) {
+		mqtt_qos2msg_t *q;
+		HASH_FIND(hh, mc->incoming_qos2, &mid, sizeof(mid), q);
+
+		bool new = !q;
+
+		if (!q) {
+			q = malloc(sizeof(mqtt_qos2msg_t));
+			q->mid = mid;
+			HASH_ADD(hh, mc->incoming_qos2, mid, sizeof(mid), q);
 		}
 
-		if (hdr->qos == 2) {
-			mqtt_qos2msg_t *q;
-			HASH_FIND(hh, mc->incoming_qos2, &mid, sizeof(mid), q);
+		q->last = time(NULL);
+		mqtt_send_pubrec(mc, mid);
 
-			if (!q) {
-				q = malloc(sizeof(mqtt_qos2msg_t));
-				q->mid = mid;
-				HASH_ADD(hh, mc->incoming_qos2, mid, sizeof(mid), q);
-
-				goto call;
-			}
-
-			q->last = time(NULL);
-			mqtt_send_pubrec(mc, mid);
-
+		if (!new)
 			goto out;
-		}
 	}
 
 call:
