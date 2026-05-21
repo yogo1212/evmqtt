@@ -149,7 +149,7 @@ static mqtt_subscription_t *mqtt_subscription_new(mqtt_subscription_engine_t *se
 	if (!topic || (strlen(topic) == 0))
 		return NULL;
 
-	char *tmp = dull_replace(topic, "+", "[^/\\x00]*");
+	char *tmp = dull_replace(topic, "+", "[^/\\x00]+");
 	char *tmp2 = dull_replace(tmp, "#", ".*");
 	free(tmp);
 	size_t regex_len = strlen(tmp2);
