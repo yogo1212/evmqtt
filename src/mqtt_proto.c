@@ -93,7 +93,7 @@ bool read_remaining_size(void **buf, size_t *out, size_t max_bytes)
 	uint32_t mul = 1;
 
 	do {
-		if ((((uintptr_t) byte) - ((uintptr_t) *buf)) > max_bytes) {
+		if ((((uintptr_t) byte) - ((uintptr_t) *buf)) >= max_bytes) {
 			return false;
 		}
 
@@ -121,9 +121,8 @@ bool write_remaining_size(void **buf, size_t size)
 	uint8_t *byte = *buf;
 
 	do {
-		if ((((uintptr_t) byte) - ((uintptr_t) *buf)) > 4) {
+		if ((((uintptr_t) byte) - ((uintptr_t) *buf)) > 3)
 			return false;
-		}
 
 		*byte = size % 128;// size & 0x7F
 		size = size / 128;// >> 7
