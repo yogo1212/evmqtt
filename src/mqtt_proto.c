@@ -289,7 +289,7 @@ bool mqtt_write_connect_data(mqtt_connect_data_t *data, char **out, size_t *outl
 void mqtt_read_connack_data(void **buf, mqtt_connack_data_t *data)
 {
 	uint8_t *pnt = *buf;
-	//First byte is reserved
+	data.flags = *pnt;
 	pnt++;
 	data->return_code = *pnt;
 	pnt++;
